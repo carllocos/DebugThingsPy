@@ -1,5 +1,6 @@
 import serial
 from serial.tools import list_ports
+from enum import Enum
 
 import device
 
@@ -19,39 +20,50 @@ def print_devices(devs = None):
         print(f'idx: {idx}\t{d}')
 #API WARDUINO see file interrupt_operations.cpp
 
+INTERUPT_TYPE = {
+  "RUN" : '01',
+  "HALT" : '02',
+  "PAUSE" : '03',
+  "STEP" : '04',
+  "BPAdd" : '06',
+  "BPRem" : '07',
+  "DUMP" : '10',
+  "DUMPLocals" : '11',
+  "UPDATEFun" : '20',
+  "UPDATELocal" : '21'
+}
+
+def toByte(interupt_type, d=''):
+    r = INTERUPT_TYPE[interupt_type] + d + '\n'
+    return r.encode('ascii')
 
 def run(dev):
-    d=b'01\n'
-    dev.send_data(d)
+    dev.send_data(toByte( "RUN" ))
 
 def halt(dev):
-#  interruptHALT = 0x02,
-    pass
+    dev.send_data(toByte( "HALT" ))
 
 def pause(dev):
-    d = b'03\n'
-    dev.send_data(d)
-    #  dev.send_data(bytes([3]))
+    dev.send_data(toByte( "PAUSE" ))
 
 def step(dev):
-#  interruptSTEP = 0x04,
-    pass
-def add_breakpoint(dev):
-#  interruptBPAdd = 0x06,
-    pass
-def remove_breakpoint(dev):
-#  interruptBPRem = 0x07,
-    pass
+    dev.send_data(toByte( "STEP" ))
+
+def add_bp(dev, bp):
+    dev.send_data(toByte( "BPAdd", bp ))
+
+def remove_bp(dev, bp):
+    dev.send_data(toByte( "BPRem", bp ))
+
 def dump(dev):
-#  interruptDUMP = 0x10,
-    pass
+    dev.send_data(toByte( "DUMP" ))
+
 def dump_local(dev):
-#  interruptDUMPLocals = 0x11,
-    pass
+    dev.send_data(toByte( "DUMPLocals" ))
+
 def update_fun(dev):
-#  interruptUPDATEFun = 0x20,
-    pass
+    dev.send_data(toByte( "UPDATEFun" ))
+
 def update_local(dev):
-#  interruptUPDATELocal = 0x21
-    pass
+    dev.send_data(toByte( "UPDATELocal" ))
 
