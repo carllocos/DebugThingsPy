@@ -1,3 +1,4 @@
+import math
 import serial
 from serial.tools import list_ports
 from enum import Enum
@@ -20,6 +21,17 @@ def print_devices(devs = None):
         print(f'idx: {idx}\t{d}')
 #API WARDUINO see file interrupt_operations.cpp
 
+def sum_hexs(off, ad):
+    int_offs = int(off[2:], 16)
+    int_ad = int(ad[2:], 16)
+    return hex(int_offs + int_ad)
+
+def rmv_off(dev, adr):
+    int_offs = int(dev.getOffset()[2:], 16)
+    int_ad = int(adr[2:], 16)
+    return hex(int_ad - int_offs)
+
+
 INTERUPT_TYPE = {
   "RUN" : '01',
   "HALT" : '02',
@@ -33,37 +45,54 @@ INTERUPT_TYPE = {
   "UPDATELocal" : '21'
 }
 
-def toByte(interupt_type, d=''):
-    r = INTERUPT_TYPE[interupt_type] + d + '\n'
-    return r.encode('ascii')
+
+def toByte(dev, interupt_type, d=''):
+    r = INTERUPT_TYPE[interupt_type]
+    if len(d)>0:
+        hx = sum_hexs(dev.getOffset(), d)[2:] #remove 0x
+        _size = math.floor(len(hx) / 2)
+        if _size % 2 != 0:
+            print("WARNING: toByte not even addr\n")
+
+        _hex_siz = hex(_size)[2:]
+        if _size < 16:
+            _hex_siz = '0' + _hex_siz
+        r = r + _hex_siz + hx
+
+    r +='\n'
+    return r.upper().encode('ascii')
 
 def run(dev):
-    dev.send_data(toByte( "RUN" ))
+    dev.send_data(toByte(dev, "RUN" ))
 
 def halt(dev):
-    dev.send_data(toByte( "HALT" ))
+    dev.send_data(toByte(dev, "HALT" ))
 
 def pause(dev):
-    dev.send_data(toByte( "PAUSE" ))
+    dev.send_data(toByte(dev, "PAUSE" ))
 
 def step(dev):
-    dev.send_data(toByte( "STEP" ))
+    dev.send_data(toByte(dev, "STEP" ))
 
 def add_bp(dev, bp):
-    dev.send_data(toByte( "BPAdd", bp ))
+    address = toByte(dev, "BPAdd", bp )
+    dev.send_data(address)
+    return address
 
 def remove_bp(dev, bp):
-    dev.send_data(toByte( "BPRem", bp ))
+    address = toByte(dev, "BPRem", bp )
+    dev.send_data(address)
+    return address
 
 def dump(dev):
-    dev.send_data(toByte( "DUMP" ))
+    dev.send_data(toByte(dev, "DUMP"))
 
 def dump_local(dev):
-    dev.send_data(toByte( "DUMPLocals" ))
+    dev.send_data(toByte(dev, "DUMPLocals" ))
 
 def update_fun(dev):
-    dev.send_data(toByte( "UPDATEFun" ))
+    dev.send_data(toByte(dev, "UPDATEFun" ))
 
 def update_local(dev):
-    dev.send_data(toByte( "UPDATELocal" ))
+    dev.send_data(toByte(dev, "UPDATELocal" ))
 
