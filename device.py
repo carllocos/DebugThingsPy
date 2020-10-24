@@ -1,6 +1,11 @@
+import json
 import threading
+
 import serial
 from serial.tools import list_ports
+
+def hex2Int(xStr):
+    return int(xStr[2:], 16)
 
 class Device:
 
@@ -13,6 +18,8 @@ class Device:
         self.__recvs = []
         self.__listener = None
         self.__verbose = False
+        self.__offset = ''
+        self.__dump = ''
 
     def __str__(self):
         return f'device={str(self.__lpi.device)}\tname={str(self.__lpi.name)}'
@@ -49,7 +56,7 @@ class Device:
         if self.__serial is None:
             raise TypeError('connect first, invoke method connect on device')
         if self.__listener is None:
-            print(f'creating the thread! verbose {verbose}')
+            #  print(f'creating the thread! verbose {verbose}')
             self.__listener = threading.Thread(target=read_data, args=(self,))
             self.__verbose = verbose
             self.__listener.start()
@@ -59,15 +66,64 @@ class Device:
 
     def send_data(self, data_bytes):
         a = self.__serial.write(data_bytes)
-        print(f"total bytes send {a}")
+        return a
 
     def is_verbose(self):
         return self.__verbose
 
+    def setOffset(self, off):
+        self.__offset = off
+
+    def getOffset(self):
+        return self.__offset
+
+    def setDump(self, d, org):
+        self.__offset = d['start'][0]
+        self.__originalDump = org
+        self.__dump = d
+
+        #start bytes
+        int_offs = hex2Int(self.__offset)
+        d['start']= ['0x0']
+
+        #setting pc
+        d['pc'] = hex(hex2Int(d['pc']) - int_offs)
+
+        #settings breakpoints
+        d['breakpoints'] = [hex(hex2Int(bp) - int_offs) for bp in d['breakpoints']]
+
+        #settings functions
+        for f in d['functions']:
+            f['from'] = hex(hex2Int(f['from']) - int_offs)
+            f['to'] = hex(hex2Int(f['to']) - int_offs)
+
+        #settings callstack
+        for cs in d['callstack']:
+            if (cs['ra'] == '0x0') and (cs['fp'] == -1):
+                continue
+            cs['ra'] = hex(hex2Int(cs['ra']) - int_offs)
+
+
+    def orgDump(self):
+        return self.__originalDump
+
+    def dump(self):
+        return self.__dump
+
 def read_data(dev):
-    __to_ignore = ["chip_delay", "digital_write", "no interrupt"]
+    __special ='DUMP!'
     __all_msgs = set()
+    __is_dump = True
     while True:
         b = dev.get_serial().read_until(bytes([ord('\n')]))
         msg = b.decode('utf-8')
-        print(msg)
+        if len(msg) > 0:
+            print(msg)
+            if __is_dump:
+                try:
+                    dev.setDump(json.loads(msg), json.loads(msg))
+                    __is_dump = False
+                except:
+                    None
+            if msg.find(__special):
+                __is_dump = True
