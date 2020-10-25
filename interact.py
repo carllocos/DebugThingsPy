@@ -46,13 +46,13 @@ INTERUPT_TYPE = {
 }
 
 
-def toByte(dev, interupt_type, d=''):
+def toAddr(dev, interupt_type, d=''):
     r = INTERUPT_TYPE[interupt_type]
     if len(d)>0:
         hx = sum_hexs(dev.getOffset(), d)[2:] #remove 0x
         _size = math.floor(len(hx) / 2)
         if _size % 2 != 0:
-            print("WARNING: toByte not even addr\n")
+            print("WARNING: toAddr not even addr\n")
 
         _hex_siz = hex(_size)[2:]
         if _size < 16:
@@ -63,36 +63,52 @@ def toByte(dev, interupt_type, d=''):
     return r.upper().encode('ascii')
 
 def run(dev):
-    dev.send_data(toByte(dev, "RUN" ))
+    dev.send_data(toAddr(dev, "RUN" ))
 
 def halt(dev):
-    dev.send_data(toByte(dev, "HALT" ))
+    dev.send_data(toAddr(dev, "HALT" ))
 
 def pause(dev):
-    dev.send_data(toByte(dev, "PAUSE" ))
+    dev.send_data(toAddr(dev, "PAUSE" ))
 
 def step(dev):
-    dev.send_data(toByte(dev, "STEP" ))
+    dev.send_data(toAddr(dev, "STEP" ))
 
 def add_bp(dev, bp):
-    address = toByte(dev, "BPAdd", bp )
+    address = toAddr(dev, "BPAdd", bp )
     dev.send_data(address)
     return address
 
 def remove_bp(dev, bp):
-    address = toByte(dev, "BPRem", bp )
+    address = toAddr(dev, "BPRem", bp )
     dev.send_data(address)
     return address
 
 def dump(dev):
-    dev.send_data(toByte(dev, "DUMP"))
+    dev.send_data(toAddr(dev, "DUMP"))
 
-def dump_local(dev):
-    dev.send_data(toByte(dev, "DUMPLocals" ))
+def dump_local(dev, qf = 1):
+    data = INTERUPT_TYPE['DUMPLocals']
+    #  if qf > 1: #TODO code should be correct. Implement as warduino side to process arguments
+    #      #  dev.send_data(toAddr(dev, "DUMPLocals", hex(qf)))
+    #      hx = hex(qf)[2:]
+    #      _size = math.floor(len(hx) / 2)
+    #      if _size % 2 != 0:
+    #          print("WARNING: added O in front for qf\n")
+    #          hx += '0'
+    #          _size +=1
+
+    #      _hex_siz = hex(_size)[2:]
+    #      if _size < 16:
+    #          _hex_siz = '0' + _hex_siz
+    #      data += _hex_siz + hx
+
+    data +='\n'
+    dev.send_data(data.upper().encode('ascii'))
 
 def update_fun(dev):
-    dev.send_data(toByte(dev, "UPDATEFun" ))
+    dev.send_data(toAddr(dev, "UPDATEFun" ))
 
 def update_local(dev):
-    dev.send_data(toByte(dev, "UPDATELocal" ))
+    dev.send_data(toAddr(dev, "UPDATELocal" ))
 

@@ -19,7 +19,9 @@ class Device:
         self.__listener = None
         self.__verbose = False
         self.__offset = ''
-        self.__dump = ''
+        self.__dump = False
+        self.__originalDump = ''
+        self.__localDump = ''
 
     def __str__(self):
         return f'device={str(self.__lpi.device)}\tname={str(self.__lpi.name)}'
@@ -110,20 +112,64 @@ class Device:
     def dump(self):
         return self.__dump
 
+    def setDumpLocal(self, localDump):
+        self.__localDump = localDump
+
+    def dump_local(self):
+        return self.__localDump
+
+    def getStack(self):
+        vals = self.__localDump
+        return CallStack(vals['frames'])
+
+    def breakpoints(self):
+        if self.__dump:
+            return self.__dump['breakpoints']
+        return []
+
+class CallStack:
+    def __init__(self, frames):
+        self.__frames = frames
+        self.__idx=0
+
+    def peek(self):
+        return self.__frames[self.__idx]
+
+    def next(self):
+        if self.__idx >= len(self.__frames):
+            return False
+        i = self.__idx
+        self.__idx += 1
+        return self.__frames[i]
+
+    def reset(self):
+        self.__idx = 0
+
 def read_data(dev):
     __special ='DUMP!'
+    __special2 = 'DUMP LOCALS!'
     __all_msgs = set()
-    __is_dump = True
+    __is_dump = False
+    __is_local= False
     while True:
         b = dev.get_serial().read_until(bytes([ord('\n')]))
         msg = b.decode('utf-8')
         if len(msg) > 0:
-            print(msg)
-            if __is_dump:
+            if __is_dump or __is_local:
                 try:
-                    dev.setDump(json.loads(msg), json.loads(msg))
-                    __is_dump = False
+                    if __is_dump:
+                        dev.setDump(json.loads(msg), json.loads(msg))
+                        __is_dump = False
+                    if __is_local:
+                        dev.setDumpLocal(json.loads(msg))
+                        #  dev.setDumpLocal(json.loads(msg[:len(msg) -2]))
+                        __is_local = False
                 except:
-                    None
-            if msg.find(__special):
+                    print(msg)
+            else:
+                print(msg)
+
+            if msg.find(__special)>=0:
                 __is_dump = True
+            if msg.find(__special2)>=0:
+                __is_local = True
