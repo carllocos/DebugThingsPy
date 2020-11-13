@@ -1,2 +1,2 @@
-# WARDuino-interactive
-interactive tool to communicate with IoT devices running on top of WARDuino
+# DebugThingsPy
+An out-of-place debugging tool for IoT devices.
