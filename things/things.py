@@ -18,5 +18,7 @@ def debug_m5StickC():
     return inter
 
 
+def clean():
+    print(inter.get_serial().read_until(b'\n'))
 
 inter = debug_m5StickC()
