@@ -28,10 +28,3 @@ class Request(ABC):
 
     def mark_waiting(self):
         self.state = MsgState.WAITING
-
-    #  @staticmethod
-    #  def wrap_with_cb(protocol, payload, serializer, options = {}):
-    #      req = Request(protocol, payload, serializer)
-    #      return circuit_breaker.ReqCircuitBreaker(req, options)
-
-
