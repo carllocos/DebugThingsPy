@@ -142,10 +142,11 @@ class RemoveBreakPointMsg(ptc.AMessageTemplate):
 class ConfirmRemoveBP(ptc.AMessageTemplate):
     NAME = 'confirm_remove_bp'
 
-    def __init__(self, addr):
+    def __init__(self, addr_hex):
         super().__init__(**{'name': ConfirmRemoveBP.NAME})
-        _start = f'RMV BP {addr}!\r\n'
+        _start = f'RMV BP {addr_hex}!\r\n'
         self.start = _start.encode('ascii')
+        self.bp_addr = addr_hex
 
 class DumpMsg(ptc.AMessageTemplate):
     NAME = 'dump'

@@ -12,8 +12,17 @@ class Serializer(interf.ASerial):
     def __init__(self):
         super().__init__()
         self.__current_bp = False
-        self.__current_dump = False
-        self.__current_locals = False
+        self.__dumps = []
+        self.__breakpoints = []
+        self.__locals = []
+        self.__interact = False
+
+    def set_interact(self, interact):
+        self.__interact = interact
+
+    def has_stack_for(self, bp):
+        with_off = util.sum_hexs([bp, self.__offset])
+        return next( (d for d in self.__dumps if d['bp'] == with_off) , False) and True
 
     def initialize_step(self, state):
         return [msgs.FirstMsg(), msgs.RunMsg()]
@@ -29,6 +38,14 @@ class Serializer(interf.ASerial):
 
     def step(self, state):
         return [msgs.StepMsg()]
+
+    def ack_add_bp(self, bp):
+        print(f'adding bp: {bp}')
+        self.__breakpoints.append(bp)
+
+    def ack_rmv_bp(self, bp):
+        print(f'deleting bp: {bp}')
+        self.__breakpoints = [ p for p in self.__breakpoints if p != bp]
 
     def add_breakpoint(self, state):
         _code = state.code_info()
@@ -48,23 +65,29 @@ class Serializer(interf.ASerial):
         _dm = msgs.DumpMsg()
         return [_dm, msgs.DumpLocals(_dm)]
 
-    def get_callstack(self):
-        return (self.__current_bp, self.__current_dump, self.__current_locals)
+    def get_callstack(self, bp):
+        with_off = util.sum_hexs([bp, self.__offset])
+        _dump = next( (d for d in self.__dumps if d['bp'] == with_off), False)
+        _locals = next( (l for l in self.__locals if l['bp'] == with_off), False)
+        if not _dump and not _locals:
+            return False
 
-    def get_cached_stack(self):
-        return (self.__current_bp, self.__current_dump, self.__current_locals)
+        return (bp, _dump, _locals)
 
     def set_offset(self, off):
         self.__offset = off
 
+    def get_offset(self):
+        return self.__offset
+
     def current_bp(self, bp):
         self.__current_bp = bp
 
-    def current_dump(self, dump):
-        self.__current_dump = dump
+    def add_dump(self, dump):
+        self.__dumps.append({'dump': dump, 'bp': self.__current_bp})
 
-    def current_local_dump(self, local_dump):
-        self.__current_locals = local_dump
+    def add_local_dump(self, local_dump):
+        self.__locals.append({'local_dump': local_dump, 'bp': self.__current_bp})
 
     def process_answer(self, msg):
         if msgs.is_first_msg(msg):
@@ -77,13 +100,13 @@ class Serializer(interf.ASerial):
             process_halt_msg(msg)
             return
         if msgs.is_add_bp_msg(msg):
-            process_add_bp(msg)
+            process_add_bp(self, self.__interact, msg)
             return
         if msgs.is_rmv_bp_msg(msg):
-            process_rmv_bp(msg)
+            process_rmv_bp(self, self.__interact, msg)
             return
         if msgs.is_at_bp_msg(msg):
-            process_at_bp_msg(self, msg)
+            process_at_bp_msg(self, self.__interact, msg)
             return
         if msgs.is_dump_msg(msg):
             process_dump(self, msg)
@@ -116,7 +139,7 @@ def process_dump_local(encoder, msg):
         all_bytes = ans['end']
         no_noise_answ = all_bytes[:-len(msg.end)]
         parsed = json.loads(no_noise_answ)
-        encoder.current_local_dump(parsed)
+        encoder.add_local_dump(parsed)
         print(f'parsed local dump {parsed}')
     except:
         print(f'Ans {msg.NAME} could not be parsed')
@@ -128,22 +151,29 @@ def process_dump(encoder, msg):
         all_bytes = ans['end']
         no_noise_answ = all_bytes[:-len(msg.end)]
         parsed = json.loads(no_noise_answ)
-        encoder.current_dump(parsed)
+        encoder.add_dump(parsed)
         print(f'parsed dump {parsed}')
     except:
         print('first message could not be parsed')
         print(f'received {ans}')
 
-def process_add_bp(msg):
+def process_add_bp(encoder, interact, msg):
     print(f'BP ADDED answer: {msg.answer}')
+    encoder.ack_add_bp(msg.bp_addr)
+    no_off = util.substract_hexs([msg.bp_addr, encoder.get_offset()])
+    interact.ack_add_bp(no_off)
 
-def process_rmv_bp(msg):
+def process_rmv_bp(encoder, interact, msg):
     print(f'BP REMOVED answer: {msg.answer}')
+    encoder.ack_rmv_bp(msg.bp_addr)
+    no_off = util.substract_hexs([msg.bp_addr, encoder.get_offset()])
+    interact.ack_rmv_bp(no_off)
 
-def process_at_bp_msg(encoder, msg):
+def process_at_bp_msg(encoder,interact,  msg):
     print(f'At BP answer: {msg.answer}')
     encoder.current_bp(msg.bp_addr)
-
+    no_off = util.substract_hexs([msg.bp_addr, encoder.get_offset()])
+    interact.ack_current_bp(no_off)
 
 def process_run_msg(msg):
     print(f'received answer for run_msg: {msg.answer}')
@@ -152,33 +182,6 @@ def process_run_msg(msg):
 def process_halt_msg(msg):
     print(f'received answer for halt_msg: {msg.answer}')
     print(f'device is halted')
-#  def process_first_msg(serializer, msg):
-#      ans = msg.reply_template.answer
-#      try:
-#          parsed = json.loads(ans['end'])
-#          offset = parsed['start'][0]
-#          serializer.set_offset(offset)
-#          print(f'set offset {offset}')
-#      except:
-#          print('first message could not be parsed')
-#          print(f'received {ans}')
-
-#  def process_add_bp(msg):
-#      print(f'BP ADDED answer: {msg.reply_template.answer}')
-
-#  def process_rmv_bp(msg):
-#      print(f'BP REMOVED answer: {msg.reply_template.answer}')
-
-#  def process_code_dump(msg):
-#      pass
-
-#  def process_run_msg(msg):
-#      print(f'received answer for run_msg: {msg.reply_template.answer}')
-#      print(f'device is running')
-
-#  def process_halt_msg(msg):
-#      print(f'received answer for halt_msg: {msg.reply_template.answer}')
-#      print(f'device is halted')
 
 def bp_addr(offset, code_addr):
     bp_addr = util.sum_hexs([offset, code_addr]) #remove '0x'
@@ -193,28 +196,3 @@ def bp_addr(offset, code_addr):
 
     print(f'tuple ({_hex}, {bp_addr})')
     return (_hex, bp_addr)
-    #  def setDump(self, d, org):
-    #      self.__offset = d['start'][0]
-    #      self.__originalDump = org
-    #      self.__dump = d
-
-    #      #start bytes
-    #      int_offs = hex2Int(self.__offset)
-    #      d['start']= ['0x0']
-
-    #      #setting pc
-    #      d['pc'] = hex(hex2Int(d['pc']) - int_offs)
-
-    #      #settings breakpoints
-    #      d['breakpoints'] = [hex(hex2Int(bp) - int_offs) for bp in d['breakpoints']]
-
-    #      #settings functions
-    #      for f in d['functions']:
-    #          f['from'] = hex(hex2Int(f['from']) - int_offs)
-    #          f['to'] = hex(hex2Int(f['to']) - int_offs)
-
-    #      #settings callstack
-    #      for cs in d['callstack']:
-    #          if (cs['ra'] == '0x0') and (cs['fp'] == -1):
-    #              continue
-    #          cs['ra'] = hex(hex2Int(cs['ra']) - int_offs)
