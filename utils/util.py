@@ -10,8 +10,12 @@ def sum_hexs(hexs):
 
     return hex(sum)
 
-def substract_hexs(dev, adr):
-    int_offs = int(dev.getOffset()[2:], 16)
-    int_ad = int(adr[2:], 16)
-    return hex(int_ad - int_offs)
+def substract_hexs(hexs):
+    t = None
+    for h in hexs:
+       if t is None:
+          t = int(h[2:], 16)
+          continue
+       t -= int(h[2:], 16)
 
+    return hex(t)
