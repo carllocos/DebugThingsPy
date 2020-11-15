@@ -1,29 +1,29 @@
 from communication import protocol as ptc
 from web_assembly import wa as WA
 
-class Interact:
+class Debugger:
     def __init__(self, dev, serializer, medium):
         super().__init__()
         self.__device = dev
         self.__serializer = serializer
-        serializer.set_interact(self)
+        serializer.set_debugger(self)
         self.__medium = medium
         self.__breakpoints = []
         self.__current_bp = False
 
     def ack_add_bp(self, bp):
-        print(f'Inter: ack add bp: {bp}')
+        print(f'Debugger: ack add bp: {bp}')
         self.__breakpoints.append(bp)
 
     def ack_rmv_bp(self, bp):
-        print(f'Inter: ack rmv bp: {bp}')
+        print(f'Debugger: ack rmv bp: {bp}')
         self.__breakpoints = [p for p in self.__breakpoints if p != bp]
 
     def breakpoints(self):
         return self.__breakpoints
 
     def ack_current_bp(self, bp):
-        print(f'Inter: ack current bp: {bp}')
+        print(f'Debugger: ack current bp: {bp}')
         self.__current_bp = bp
 
     def intialize(self, code_info):

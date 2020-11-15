@@ -1,7 +1,7 @@
 from boards import m5stickc as board
 from discovery import serial as discovery
 from communication import serial as ser
-from communication import interact
+from things import debug
 
 
 def debug_m5StickC():
@@ -13,12 +13,12 @@ def debug_m5StickC():
 
     serializer = board.M5StickC.serializer()
     medium = ser.Serial(serializer)
-    inter = interact.Interact(dev=dev, serializer=serializer, medium=medium)
-    inter.intialize('dummy')
-    return inter
+    dbg = debug.Debugger(dev=dev, serializer=serializer, medium=medium)
+    dbg.intialize('dummy')
+    return dbg
 
 
 def clean():
-    print(inter.get_serial().read_until(b'\n'))
+    print(dbg.get_serial().read_until(b'\n'))
 
-inter = debug_m5StickC()
+dbg = debug_m5StickC()

@@ -15,10 +15,10 @@ class Serializer(interf.ASerial):
         self.__dumps = []
         self.__breakpoints = []
         self.__locals = []
-        self.__interact = False
+        self.__debugger = False
 
-    def set_interact(self, interact):
-        self.__interact = interact
+    def set_debugger(self, debugger):
+        self.__debugger = debugger
 
     def has_stack_for(self, bp):
         with_off = util.sum_hexs([bp, self.__offset])
@@ -100,13 +100,13 @@ class Serializer(interf.ASerial):
             process_halt_msg(msg)
             return
         if msgs.is_add_bp_msg(msg):
-            process_add_bp(self, self.__interact, msg)
+            process_add_bp(self, self.__debugger, msg)
             return
         if msgs.is_rmv_bp_msg(msg):
-            process_rmv_bp(self, self.__interact, msg)
+            process_rmv_bp(self, self.__debugger, msg)
             return
         if msgs.is_at_bp_msg(msg):
-            process_at_bp_msg(self, self.__interact, msg)
+            process_at_bp_msg(self, self.__debugger, msg)
             return
         if msgs.is_dump_msg(msg):
             process_dump(self, msg)
@@ -157,23 +157,23 @@ def process_dump(encoder, msg):
         print('first message could not be parsed')
         print(f'received {ans}')
 
-def process_add_bp(encoder, interact, msg):
+def process_add_bp(encoder, debugger, msg):
     #print(f'BP ADDED answer: {msg.answer}')
     encoder.ack_add_bp(msg.bp_addr)
     no_off = util.substract_hexs([msg.bp_addr, encoder.get_offset()])
-    interact.ack_add_bp(no_off)
+    debugger.ack_add_bp(no_off)
 
-def process_rmv_bp(encoder, interact, msg):
+def process_rmv_bp(encoder, debugger, msg):
     #print(f'BP REMOVED answer: {msg.answer}')
     encoder.ack_rmv_bp(msg.bp_addr)
     no_off = util.substract_hexs([msg.bp_addr, encoder.get_offset()])
-    interact.ack_rmv_bp(no_off)
+    debugger.ack_rmv_bp(no_off)
 
-def process_at_bp_msg(encoder,interact,  msg):
+def process_at_bp_msg(encoder,debugger,  msg):
     #print(f'At BP answer: {msg.answer}')
     encoder.current_bp(msg.bp_addr)
     no_off = util.substract_hexs([msg.bp_addr, encoder.get_offset()])
-    interact.ack_current_bp(no_off)
+    debugger.ack_current_bp(no_off)
 
 def process_run_msg(msg):
     #print(f'received answer for run_msg: {msg.answer}')
