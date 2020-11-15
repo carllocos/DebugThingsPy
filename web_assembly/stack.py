@@ -157,9 +157,10 @@ class Frame:
               #  'name': self.name,
               'fidx': self.func_id,
               'idx': self.idx,
-              'fp': self.fp,
-              'sp': self.sp,
-              'ret_addr': self.ret_addr}
+              #  'fp': self.fp,
+              #  'sp': self.sp,
+              'ret_addr': self.ret_addr
+              }
         return d
 
     def __repr__(self):
@@ -169,12 +170,16 @@ class Frame:
         return f'{self.as_dict()}'
 
 class CallStack:
-    def __init__(self, funcs):
+    def __init__(self, funcs, break_point):
         self.__funcs = funcs
         self.__idx = None
         self.__frames = []
         self.__stack_values = False
         self.__other_frames = []
+        self.breakpoint = break_point
+
+    def values(self):
+        return self.__stack_values
 
     def pop_frame(self, skip=0):
         if skip > 0 and self.__idx is not None:

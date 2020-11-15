@@ -40,11 +40,11 @@ class Serializer(interf.ASerial):
         return [msgs.StepMsg()]
 
     def ack_add_bp(self, bp):
-        print(f'adding bp: {bp}')
+        #print(f'adding bp: {bp}')
         self.__breakpoints.append(bp)
 
     def ack_rmv_bp(self, bp):
-        print(f'deleting bp: {bp}')
+        #print(f'deleting bp: {bp}')
         self.__breakpoints = [ p for p in self.__breakpoints if p != bp]
 
     def add_breakpoint(self, state):
@@ -128,7 +128,7 @@ def process_first_msg(serializer, msg):
         parsed = json.loads(no_noise_answ)
         offset = parsed['start'][0]
         serializer.set_offset(offset)
-        print(f'set offset {offset}')
+        #print(f'set offset {offset}')
     except:
         print('first message could not be parsed')
         print(f'received {ans}')
@@ -140,7 +140,7 @@ def process_dump_local(encoder, msg):
         no_noise_answ = all_bytes[:-len(msg.end)]
         parsed = json.loads(no_noise_answ)
         encoder.add_local_dump(parsed)
-        print(f'parsed local dump {parsed}')
+        #print(f'parsed local dump {parsed}')
     except:
         print(f'Ans {msg.NAME} could not be parsed')
         print(f'received {ans}')
@@ -152,36 +152,38 @@ def process_dump(encoder, msg):
         no_noise_answ = all_bytes[:-len(msg.end)]
         parsed = json.loads(no_noise_answ)
         encoder.add_dump(parsed)
-        print(f'parsed dump {parsed}')
+        #print(f'parsed dump {parsed}')
     except:
         print('first message could not be parsed')
         print(f'received {ans}')
 
 def process_add_bp(encoder, interact, msg):
-    print(f'BP ADDED answer: {msg.answer}')
+    #print(f'BP ADDED answer: {msg.answer}')
     encoder.ack_add_bp(msg.bp_addr)
     no_off = util.substract_hexs([msg.bp_addr, encoder.get_offset()])
     interact.ack_add_bp(no_off)
 
 def process_rmv_bp(encoder, interact, msg):
-    print(f'BP REMOVED answer: {msg.answer}')
+    #print(f'BP REMOVED answer: {msg.answer}')
     encoder.ack_rmv_bp(msg.bp_addr)
     no_off = util.substract_hexs([msg.bp_addr, encoder.get_offset()])
     interact.ack_rmv_bp(no_off)
 
 def process_at_bp_msg(encoder,interact,  msg):
-    print(f'At BP answer: {msg.answer}')
+    #print(f'At BP answer: {msg.answer}')
     encoder.current_bp(msg.bp_addr)
     no_off = util.substract_hexs([msg.bp_addr, encoder.get_offset()])
     interact.ack_current_bp(no_off)
 
 def process_run_msg(msg):
-    print(f'received answer for run_msg: {msg.answer}')
-    print(f'device is running')
+    #print(f'received answer for run_msg: {msg.answer}')
+    #print(f'device is running')
+    return
 
 def process_halt_msg(msg):
-    print(f'received answer for halt_msg: {msg.answer}')
-    print(f'device is halted')
+    #print(f'received answer for halt_msg: {msg.answer}')
+    #print(f'device is halted')
+    return
 
 def bp_addr(offset, code_addr):
     bp_addr = util.sum_hexs([offset, code_addr]) #remove '0x'
@@ -194,5 +196,5 @@ def bp_addr(offset, code_addr):
     if int(_hex[2:], 16) < 16:
         _hex = '0x0' + _hex[2:]
 
-    print(f'tuple ({_hex}, {bp_addr})')
+    #print(f'tuple ({_hex}, {bp_addr})')
     return (_hex, bp_addr)

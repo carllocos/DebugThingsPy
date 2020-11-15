@@ -19,7 +19,7 @@ def raw_to_stack(raw):
     _dump = _dump_dict['dump']
     _offset =  _dump['start'][0]
     _funcs = [ to_fun(f, _offset) for f in _dump['functions']]
-    _cs = stack.CallStack(_funcs)
+    _cs = stack.CallStack(_funcs, _bp)
     for idx, f in enumerate(_dump['callstack']):
         _frame = to_frame(f, _offset, idx)
         _cs.add_frame(_frame)
@@ -34,7 +34,7 @@ def raw_to_stack(raw):
     _cs.set_stack_values(_sv)
     _sv.setup()
     _cs.setup()
-    return (_bp, _cs, _sv)
+    return _cs
 
 def to_frame(cs_json, offset, idx):
     _type = stack.BlockType.from_int(cs_json['type'])

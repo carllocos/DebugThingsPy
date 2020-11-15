@@ -71,13 +71,13 @@ class Serial(medium.Medium):
 
 
 def send_read_data(serial, serializer, requests, complete_queue):
-    print(f'serial scheduled to send #{requests.qsize()} reqs')
+    #print(f'serial scheduled to send #{requests.qsize()} reqs')
     while not requests.empty():
         #TODO fix bad interleave
         _req = requests.get()
         _msg = _req.message
 
-        print(f'send {_msg.NAME} payload: {_msg.payload}')
+        #print(f'send {_msg.NAME} payload: {_msg.payload}')
         serial.write(_msg.payload)
         _req.mark_send()
 
@@ -87,17 +87,17 @@ def send_read_data(serial, serializer, requests, complete_queue):
         while recv_msg:
             answ = {'start': False, 'end': False}
             if recv_msg.has_start():
-                print(f'read start {recv_msg.start}')
+                #print(f'read start {recv_msg.start}')
                 answ['start'] = serial.read_until(recv_msg.start)
             if recv_msg.has_end():
-                print(f'read until {recv_msg.end}')
+                #print(f'read until {recv_msg.end}')
                 answ['end'] = serial.read_until(recv_msg.end)
 
             recv_msg.receive_answer(answ)
             serializer.process_answer(recv_msg)
 
             recv_msg = recv_msg.reply_template
-        print('THREAD DONE')
+        #print('THREAD DONE')
         _req.mark_done()
         complete_queue.put(_req)
 
