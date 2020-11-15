@@ -31,6 +31,9 @@ def raw_to_stack(raw):
         _sv.add_value(v['type'], v['value'], v['idx'])
 
     _sv.set_orignal(_locals['local_dump'])
+    _cs.set_stack_values(_sv)
+    _sv.setup()
+    _cs.setup()
     return (_bp, _cs, _sv)
 
 def to_frame(cs_json, offset, idx):
@@ -39,9 +42,9 @@ def to_frame(cs_json, offset, idx):
     _module = 'some_mod'
     _name = 'some_name'
     _idx = idx
-    _fp = cs_json['fp'] if cs_json['fp'] != -1 else None
-    _sp = cs_json['sp'] if cs_json['sp'] != -1 else None
-    _retaddr = None
+    _fp = cs_json['fp']
+    _sp = cs_json['sp']
+    _retaddr = '0x0'
     if cs_json['ra'] != '0x0':
         _retaddr = util.substract_hexs([cs_json['ra'], offset])
 
