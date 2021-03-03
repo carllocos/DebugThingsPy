@@ -1,4 +1,5 @@
 from enum import Enum
+import struct as struct #https://www.delftstack.com/howto/python/how-to-convert-bytes-to-integers/
 
 
 class BreapPoint:
@@ -39,8 +40,11 @@ class StackValues:
         self.__values = []
         self.__idx = None
 
-    def from_idx(self, idx):
-        return next(( v for v in self.__values if v['idx'] == idx), False)
+    def from_idx(self, idx): # TODO BUG FIX False
+        r =  next(( v for v in self.__values if v['idx'] == idx), False)
+        if isinstance(r, bool):
+            raise ValueError(f"Did not find stack value with idx {idx}")
+        return r
 
     def from_to(self, frame, next_frame = False):
         if not next_frame:
@@ -98,6 +102,52 @@ class BlockType(Enum):
             raise ValueError(f'incorrect BlockType idx {i}')
         return types[i]
 
+
+class CleanedStackValues:
+
+    def __init__(self, vals):
+        super().__init__()
+        self.__vals = vals
+        self.__vals.sort(key = lambda sv: sv['idx'], reverse= True)
+        self.__iterator = len(vals) - 1
+
+    @property
+    def values(self):
+        return self.__vals
+
+    def pop(self):
+        v = False
+        if self.__iterator < len(self.__vals):
+            v = self.__vals[self.__iterator]
+            self.__iterator = self.__iterator + 1
+        return v
+
+    def reset(self):
+        self.__iterator = len(self.__vals) - 1
+class Locals:
+
+    def __init__(self, locs):
+        super().__init__()
+        self.__locs = locs
+
+    def __str__(self):
+        return str(self.__locs)
+
+    def __repr__(self):
+        return str(self.__locs)
+
+    def __getitem__(self, key):
+        if not isinstance(key, int):
+            raise ValueError('Key must be integer')
+
+        return next((l for l in self.__locs if l['idx'] == key), False)
+
+    #  def get(self, idx=None):
+    #      v = False
+    #      if idx is not None:
+    #          v = next((l for l in self.__locs if l['idx'] == idx), False)
+    #      return v
+
 class Frame:
 
     def __init__(self, block_type, module, name, idx, fp, sp, ret_addr, func_id):
@@ -111,12 +161,33 @@ class Frame:
         self.func_id =func_id
         self.__stack_values = False
         self.__callstack = False
+        self.__cleaned_sv = False
+        self.__locals = False
+        self.__args = False
+
+    @property
+    def locals(self):
+        if not self.__locals:
+            self.stack_values()
+        return self.__locals
+
+    @property
+    def args(self):
+        if not self.__args:
+            self.stack_values()
+        return self.__args
 
     def set_stack_values(self, sv, callstack):
         self.__stack_values = sv
         self.__callstack = callstack
 
+    def org_stack_vals(self):
+        return self.__stack_values
+
     def stack_values(self):
+        if self.__cleaned_sv:
+            return self.__cleaned_sv
+
         res = {'args': [], 'locals': [], 'rest': []}
         if self.block_type != BlockType.FUNC:
             return res
@@ -132,7 +203,7 @@ class Frame:
 
         _locs = []
         if func['q_locals'] > 0:
-            for i in range(1, func['q_locals'] + 1):
+            for i in range(func['q_locals']):
                 _locs.append(self.__stack_values.from_idx( self.fp + i ))
 
         next_frame = self.__callstack.find_next(self.idx)
@@ -140,26 +211,29 @@ class Frame:
 
         _rest = []
         for keep in  _vals:
+            #  print(f'KEEP {keep}')
+            #  print(f'ARGS {args}')
             if next(( a for a in args if a['idx'] == keep['idx']), False):
                 continue
+            #  print(f'LOCALS {_locs}')
             if next(( l for l in _locs if l['idx'] == keep['idx']), False):
                 continue
             _rest.append(keep)
 
-        res['args']= args
-        res['locals' ] = _locs
-        res['rest' ] = _rest
-        return res
+        self.__args = args
+        self.__locals = Locals(_locs)
+        self.__cleaned_sv = CleanedStackValues(_rest)
+        return self.__cleaned_sv
 
     def as_dict(self):
         d =  {'block_type': self.block_type,
               #  'module': self.module,
               #  'name': self.name,
               'fidx': self.func_id,
-              'idx': self.idx,
+              #  'idx': self.idx,
               #  'fp': self.fp,
               #  'sp': self.sp,
-              'ret_addr': self.ret_addr
+              #  'ret_addr': self.ret_addr
               }
         return d
 
@@ -169,6 +243,74 @@ class Frame:
     def __str__(self):
         return f'{self.as_dict()}'
 
+class Memory:
+    def __init__(self, pages, byts):
+        self.__pages = pages
+        self.__bytes = byts
+
+    def __str__(self):
+        d = {
+            'pages': self.__pages,
+            'bytes': self.__bytes
+            }
+        return str(d)
+
+    def as_dict(self):
+        d = {
+            'pages': self.pages,
+            'bytes': self.bytes
+            }
+        return d
+
+    def __repr__(self):
+        return f'{self.as_dict()}'
+
+    @property
+    def bytes(self):
+        return self.__bytes
+
+    @property
+    def pages(self):
+        return self.__pages
+
+    def to_4bytes_ints(self):
+        qe = len(self.bytes) // 4
+        #  print(f"quantity elements {qe}")
+        _ints = []
+
+        for i in range(qe):
+            off = i * 4
+            _b = self.bytes [off : off + 4]
+            (_int, _ ) = struct.unpack('<HH', _b)
+            _ints.append(_int)
+
+        return _ints
+
+class Table:
+    def __init__(self, max_elements, elements):
+        self.__max = max_elements
+        self.__elements = [ {'fidx': e} for e in elements]
+
+    def __str__(self):
+        d = {
+            'max': self.__max,
+            'elements': self.__elements
+            }
+        return str(d)
+
+    def as_dict(self):
+        d = {
+            'max': self.__max,
+            'elements': self.__elements
+            }
+        return d
+
+    def __repr__(self):
+        return f'{self.as_dict()}'
+
+    def get_elements(self):
+        return self.__elements
+
 class CallStack:
     def __init__(self, funcs, break_point):
         self.__funcs = funcs
@@ -177,6 +319,20 @@ class CallStack:
         self.__stack_values = False
         self.__other_frames = []
         self.breakpoint = break_point
+        self.__memory = False
+        self.__table = False
+
+    def set_memory(self, mem):
+        self.__memory = mem
+
+    def get_memory(self):
+        return self.__memory
+
+    def set_table(self, table):
+        self.__table = table
+
+    def get_table(self):
+        return self.__table
 
     def values(self):
         return self.__stack_values
@@ -247,3 +403,19 @@ def make_fun(module, name, func_id, from_addr, to_addr, args_amounts, locals_amo
          'q_args': args_amounts,
          'q_locals': locals_amount}
     return f
+
+class Globals:
+    def __init__(self, _globals):
+        self.__globals = _globals
+
+    def __str__(self):
+        return str(self.__globals)
+
+    def __repr__(self):
+        return str(self)
+
+    def __getitem__(self, key):
+        if not isinstance(key, int):
+            raise ValueError('Key must be integer')
+
+        return next((g for g in self.__globals if g['idx'] == key), False)

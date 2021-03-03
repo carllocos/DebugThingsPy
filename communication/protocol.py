@@ -17,6 +17,7 @@ class AMessageTemplate(ABC):
         self.end = kwargs.get('end', False)
         self.payload = kwargs.get('payload', False)
         self.answer = kwargs.get('answer', False)
+        self.to_send = kwargs.get('to_send', True)
 
     def expects_reply(self):
         return self.reply_tamplate and True
@@ -32,3 +33,6 @@ class AMessageTemplate(ABC):
 
     def set_reply_template(self, msg_templ):
         self.reply_template = msg_templ
+
+    def is_to_send(self):
+        return self.to_send

@@ -36,6 +36,7 @@ class Serial(medium.Medium):
         _reqs = self.__schedule_msgs(msgs)
         #TODO FIx bad interleave 
         if self.__worker and self.__worker.is_alive():
+            print("WORKER BUSY")
             return _reqs
 
         _ser =self.__serial
@@ -78,7 +79,8 @@ def send_read_data(serial, serializer, requests, complete_queue):
         _msg = _req.message
 
         #print(f'send {_msg.NAME} payload: {_msg.payload}')
-        serial.write(_msg.payload)
+        if _msg.is_to_send():
+            serial.write(_msg.payload)
         _req.mark_send()
 
         #TODO ugly ugly ugly!
@@ -89,15 +91,18 @@ def send_read_data(serial, serializer, requests, complete_queue):
             if recv_msg.has_start():
                 #print(f'read start {recv_msg.start}')
                 answ['start'] = serial.read_until(recv_msg.start)
+                #print(f'the start {answ["start"]}')
             if recv_msg.has_end():
                 #print(f'read until {recv_msg.end}')
                 answ['end'] = serial.read_until(recv_msg.end)
+                #print(f'the end {answ["end"]}')
 
             recv_msg.receive_answer(answ)
             serializer.process_answer(recv_msg)
 
             recv_msg = recv_msg.reply_template
-        #print('THREAD DONE')
+
+        #  print('THREAD DONE')
         _req.mark_done()
         complete_queue.put(_req)
 
