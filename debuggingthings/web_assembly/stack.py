@@ -20,17 +20,19 @@ class BreapPoint:
 class ConstType(Enum):
     I32 = 0
     I64 = 1
+    F32 = 2
+    F64 = 3
+
 
     @staticmethod
     def from_str(type_str):
-        if len(type_str) == 0 or type_str[0] != 'i':
-            raise ValueError('incorrect str. Must be of the form `i32`')
-        _bits = int(type_str[1:], 10)
-        if _bits % 32 != 0 or _bits > 64:
-            raise ValueError('incorrect constant')
+        types = ['i32', 'i64', 'f32', 'f64']
+        idx =  next((idx for idx, t in enumerate(types) if type_str == t), None)
 
-        idx = int((_bits / 32) - 1)
-        types = [ConstType.I32, ConstType.I64]
+        if idx is None:
+            raise ValueError(f'incorrect str. Must be of the form `i32`. Given {type_str}')
+
+        types = [ConstType.I32, ConstType.I64, ConstType.F32, ConstType.F64]
         return types[idx]
 
 
@@ -102,6 +104,20 @@ class BlockType(Enum):
             raise ValueError(f'incorrect BlockType idx {i}')
         return types[i]
 
+    @staticmethod
+    def tostr(bt):
+        if bt == BlockType.FUNC:
+            return 'func'
+        elif bt == BlockType.INIT_EXP:
+            return 'init_exp'
+        elif bt == BlockType.BLOCK:
+            return 'block'
+        elif bt == BlockType.LOOP:
+            return 'loop'
+        elif bt == BlockType.IF:
+            return 'if'
+        else:
+            return 'unknow'
 
 class CleanedStackValues:
 
@@ -150,7 +166,7 @@ class Locals:
 
 class Frame:
 
-    def __init__(self, block_type, module, name, idx, fp, sp, ret_addr, func_id):
+    def __init__(self, block_type, module, name, idx, fp, sp, ret_addr, func_id, block_key):
         self.block_type = block_type
         self.module = module
         self.name = name
@@ -164,6 +180,7 @@ class Frame:
         self.__cleaned_sv = False
         self.__locals = False
         self.__args = False
+        self.__block_key = block_key
 
     @property
     def locals(self):
@@ -226,14 +243,15 @@ class Frame:
         return self.__cleaned_sv
 
     def as_dict(self):
-        d =  {'block_type': self.block_type,
+        d =  {'block_type': BlockType.tostr(self.block_type),
               #  'module': self.module,
               #  'name': self.name,
               'fidx': self.func_id,
               #  'idx': self.idx,
-              #  'fp': self.fp,
-              #  'sp': self.sp,
-              #  'ret_addr': self.ret_addr
+              'fp': self.fp,
+              'sp': self.sp,
+              'ret_addr': self.ret_addr,
+              'block_key': self.__block_key
               }
         return d
 

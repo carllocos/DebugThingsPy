@@ -130,6 +130,9 @@ dmypy.json
 .pyre/
 
 
-#ignore vim
+#ingore editors
 .vim/
+.vscode/
+c_libs/
 
+*.wasm

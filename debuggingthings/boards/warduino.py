@@ -1,11 +1,22 @@
 import math
 import json
 import struct as struct #https://www.delftstack.com/howto/python/how-to-convert-bytes-to-integers/
+import inspect
 
 from serializers import serializer_interface as interf
 from communication import protocol as ptc
 from boards import warduino_msg as msgs
 from utils import util
+from . import encoder as encEncoder
+
+DEBUG = True
+
+def dbgprint(s):
+    curframe = inspect.currentframe()
+    calframe = inspect.getouterframes(curframe, 2)
+    cn =str(calframe[1][3])
+    if DEBUG:# and cn in ONLY:
+        print((cn + ':').upper(), s)
 
 #TODO use builder associated to each protocol. Probably a dictionary extension
 class Serializer(interf.ASerial):
@@ -132,6 +143,10 @@ class Serializer(interf.ASerial):
 
     def add_local_dump(self, local_dump):
         self.__locals.append({'local_dump': local_dump, 'bp': self.__current_bp})
+
+    def clean_session(self, dump, vals, new_offset):
+        dbgprint('cleaning session')
+        return encEncoder.clean_session(dump, vals, new_offset)
 
     def process_answer(self, msg):
         if msgs.is_first_msg(msg):

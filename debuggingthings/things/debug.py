@@ -1,5 +1,6 @@
 from communication import protocol as ptc
 from web_assembly import wa as WA
+from boards import dummy
 
 class Debugger:
     def __init__(self, dev, serializer, medium):
@@ -11,6 +12,7 @@ class Debugger:
         self.__breakpoints = []
         self.__current_bp = False
         self.__advance_ctr = 0
+        self.__received_session = False
 
     def current_bp(self):
         return self.__current_bp
@@ -93,22 +95,44 @@ class Debugger:
         pass
 
     def debug_session(self, code_info=False):
-        if not self.__current_bp:
+        if not self.__received_session and not self.__current_bp:
             print("no bp reached yet")
             return
 
-        #  print('current BP')
-        #  print(self.__current_bp)
-        if not self.__serializer.has_stack_for(self.__current_bp):
+        cbp = self.__current_bp
+        if self.__received_session:
+            cbp = self.__serializer.specialbp()
+            self.__serializer.force_cbp(cbp)
+
+        if not self.__serializer.has_stack_for(cbp):
             state = State(self.__device, code_info)
             _msgs = self.__serializer.callstack_msgs(state)
             _reqs = self.__medium.send(_msgs, self.__device)
             self.__medium.wait_for_answers(_reqs)
-        _raw = self.__serializer.get_callstack(self.__current_bp)
-        #  print("RAW")
-        #  print(_raw)
-        return _raw and  WA.raw_to_stack(_raw)
 
+        if self.__received_session:
+            self.__received_session = False
+            self.__serializer.sync_with(cbp)
+
+        _raw = self.__serializer.get_callstack(self.__current_bp)
+        return _raw and  WA.raw_to_stack(_raw, self.__serializer, self.__device)
+
+    def receive_session(self, debugsess):
+        self.__received_session = True
+        cleaned = debugsess.clean_session(self.__serializer.get_offset())
+        _msgs = self.__serializer.serialize_session(cleaned)
+        _reqs = self.__medium.send(_msgs, self.__device)
+        self.__medium.wait_for_answers(_reqs)
+
+    def receive_session_test(self):
+        self.__received_session = True
+        dmp = dummy.dummy_dump['dump']
+        vals = dummy.dummy_vals['local_dump']
+        cleaned = self.__serializer.clean_session(dmp, vals, self.__serializer.get_offset())
+        _msgs = self.__serializer.serialize_session(cleaned)
+        _reqs = self.__medium.send(_msgs, self.__device)
+        self.__medium.wait_for_answers(_reqs)
+    
     #FOR DEBUG
     def get_med(self):
         return self.__medium

@@ -7,8 +7,11 @@ from devices import device
 
 def find_device(serial_config):
     for pi in list_port_info():
-        if pi.device != serial_config.device:
+        if pi.device != serial_config.device and pi.device != serial_config.fallback:
             continue
+
+        if pi.device == serial_config.fallback:
+            serial_config.device = serial_config.fallback
 
         dev = device.Device()
         dev.serial_config(serial_config)

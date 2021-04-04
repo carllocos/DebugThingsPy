@@ -1,0 +1,25 @@
+
+fac.dbg.wasm:	file format wasm 0x1
+
+Section Details:
+
+Type[3]:
+ - type[0] (i32) -> nil
+ - type[1] () -> nil
+ - type[2] (i64, i32) -> i32
+Function[3]:
+ - func[0] sig=0 <dummy>
+ - func[1] sig=2 <fac>
+ - func[2] sig=1 <fac5>
+Export[1]:
+ - func[2] <fac5> -> "main"
+Code[3]:
+ - func[0] size=2 <dummy>
+ - func[1] size=28 <fac>
+ - func[2] size=21 <fac5>
+Custom:
+ - name: "name"
+ - func[0] <dummy>
+ - func[1] <fac>
+ - func[2] <fac5>
+ - func[2] local[0] <int_32>

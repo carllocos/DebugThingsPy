@@ -1,3 +1,5 @@
+import inspect
+
 from web_assembly import stack
 from web_assembly import debug_session as DS
 
@@ -8,21 +10,28 @@ raw_dump = {'dump': {'pc': '0x3ffbecea', 'start': ['0x3ffbebf0'], 'opcode': '0x2
 raw_locals = {'local_dump': {'stack': [{'idx': 0, 'type': 'i32', 'value': 2}, {'idx': 1, 'type': 'i32', 'value': 95}, {'idx': 2, 'type': 'i32', 'value': 8}, {'idx': 3, 'type': 'i32', 'value': 9}, {'idx': 4, 'type': 'i32', 'value': 9}, {'idx': 5, 'type': 'i32', 'value': 2}]}, 'bp': '0x3ffbecea'}
 raw_complex = ('0xfa', raw_dump, raw_locals)
 
+DEBUG = True
+def dbgprint(s):
+    curframe = inspect.currentframe()
+    calframe = inspect.getouterframes(curframe, 2)
+    cn =str(calframe[1][3])
+    if DEBUG:# and cn in ONLY:
+        print((cn + ':').upper(), s)
 
 
-def raw_to_stack(raw):
+def raw_to_stack(raw, aSerializer, aDevice):
     if not isinstance(raw, tuple):
         raise ValueError('expects a tuple size 3 (bp, dump, locals)')
     if len(raw) != 3:
         raise ValueError('expects a tuple size 3 (bp, dump, locals)')
 
     (_bp, _dump_dict, _locals) = raw
-    #  print("-----------------------------------------------------------------------------------")
-    #  print(f"BReakpoint {_bp}")
-    #  print("-----------------------------------------------------------------------------------")
-    #  print(f'Locals {_locals}')
-    #  print("-----------------------------------------------------------------------------------")
-    #  print(f'DUMP {_dump_dict}')
+    #  dbgprint("-----------------------------------------------------------------------------------")
+    #  dbgprint(f"BReakpoint {_bp}")
+    #  dbgprint("-----------------------------------------------------------------------------------")
+    #  dbgprint(f'Locals {_locals}')
+    #  dbgprint("-----------------------------------------------------------------------------------")
+    #  dbgprint(f'DUMP {_dump_dict}')
 
     _dump = _dump_dict['dump']
     _offset =  _dump['start'][0]
@@ -58,6 +67,10 @@ def raw_to_stack(raw):
         'table': _tbl,
         'br_table': __br_table,
         'globals': stack.Globals(_dump['globals']),
+        'org_dump': _dump,
+        'org_vals': {'stack': _vals},
+        'serializer': aSerializer,
+        'device': aDevice
         #  'opcode':  _dump['opcode']
     }
     return DS.DebugSession(**kwargs)
@@ -71,10 +84,14 @@ def to_frame(cs_json, offset, idx):
     _fp = cs_json['fp']
     _sp = cs_json['sp']
     _retaddr = '0x0'
+    _block_key = cs_json['block_key']
+    if 'nil' not in _block_key:
+        _block_key = util.substract_hexs([cs_json['block_key'], offset])
+
     if cs_json['ra'] != '0x0':
         _retaddr = util.substract_hexs([cs_json['ra'], offset])
 
-    return stack.Frame(_type,_module, _name, _idx, _fp, _sp, _retaddr, _func_id)
+    return stack.Frame(_type,_module, _name, _idx, _fp, _sp, _retaddr, _func_id, _block_key)
 
 
 def to_fun(fun_json, offset):
@@ -86,12 +103,3 @@ def to_fun(fun_json, offset):
     _qargs = fun_json['args']
     _qlocals = fun_json['locs']
     return stack.make_fun(_module_name, _name, _id, _start_addr, _end_addr, _qargs, _qlocals)
-
-def do_complex():
-    return raw_to_stack(raw_complex)
-
-#  def do_test():
-#      return raw_to_stack(raw_json)
-
-
-

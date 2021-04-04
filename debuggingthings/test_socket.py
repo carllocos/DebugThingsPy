@@ -44,6 +44,7 @@ fp = None
 sock = None
 sockAtBp = None
 OFFSET = "0x55cd813d8020"
+clientSocket = None
 sockets = {}
 
 DUMP = None
@@ -58,6 +59,8 @@ KINDS = {'pcState': '01',
          'memState': '06', 
          'brtblState': '07',
          'stackvalsState': '08'}
+
+WITH_INTERRUPT = False
 
 ONLY = ['dump', 'run', 'add_bp', 'connect', 'debugsession', 'find_process', 'open_tmp_file', 'dumpvalues', 'at_bp_handler']
 def dbgprint(s):
@@ -151,6 +154,7 @@ def open_tmp_file(name='change'):
 def process_unknown(byts, unknown):
     dbgprint(f'received chars unknown msg {unknown}')
     #TODO process at bp
+
 
 def send_signal(_):
     #dbgprint("send_signal")
@@ -253,11 +257,11 @@ def read_from_socket(sock, start, end):
 #      return _wholebuf
 
 def dump(_):
-    global sockets
+    global sockets, clientSocket
     #  global OFFSET, DUMP, dummy_dump, DEBUG, CTR
 
-    sock = sockets['io']
-    if sock.send('10\n'.encode()) < 0:
+    sock = sockets[clientSocket]
+    if safe_send(sock, '10\n'.encode()) < 0:
         print("error sending dump")
 
     #FIXME be careful some frames have as return address nil!!
@@ -268,96 +272,101 @@ def dump(_):
     #  DEBUG = False if CTR < 1 else True
     #  CTR += 1
 
-    buf = read_from_socket(sock, "DUMP!\n", "\n")
-    #  part1 = recv_bytes(sock)
-    print(f'read PART1 {buf}')
+    #  buf = read_from_socket(sock, "DUMP!\n", "\n")
+    #  #  part1 = recv_bytes(sock)
+    #  print(f'read PART1 {buf}')
     return True
 
-    raw1 = recv_bytes()
-    part2 = recv_bytes()
-    raw2 = recv_bytes()
-    part3 = recv_bytes()
-    raw3 = recv_bytes()
-    part4 = recv_bytes()
-    all_b = [part1, raw1, part2, raw2, part3, raw3, part4]
+    #  raw1 = recv_bytes()
+    #  part2 = recv_bytes()
+    #  raw2 = recv_bytes()
+    #  part3 = recv_bytes()
+    #  raw3 = recv_bytes()
+    #  part4 = recv_bytes()
+    #  all_b = [part1, raw1, part2, raw2, part3, raw3, part4]
 
-    for i,b in enumerate(all_b):
-        p = 'raw ' if (i + 1) % 2 == 0 else 'part '
-        p += str(i + 1)
-        #  #dbgprint(f'{p} {i} byts:')
-        #  #dbgprint(f'{b}')
-        #  #dbgprint("="*25 + '\n')
+    #  for i,b in enumerate(all_b):
+    #      p = 'raw ' if (i + 1) % 2 == 0 else 'part '
+    #      p += str(i + 1)
+    #      #  #dbgprint(f'{p} {i} byts:')
+    #      #  #dbgprint(f'{b}')
+    #      #  #dbgprint("="*25 + '\n')
 
-    json_str = ''
+    #  json_str = ''
 
-    dump_start = noisefree(part1.decode())
-    assert len(dump_start) == 2, 'Expected two elements for dump start'
-    assert dump_start[0] == 'DUMP START', "No correct dump start"
+    #  dump_start = noisefree(part1.decode())
+    #  assert len(dump_start) == 2, 'Expected two elements for dump start'
+    #  assert dump_start[0] == 'DUMP START', "No correct dump start"
 
-    json_str += dump_start[1]
+    #  json_str += dump_start[1]
 
-    mem_str = noisefree(part2.decode())
-    assert len(mem_str) == 1, 'Expected one element for memory dump'
-    assert 'memory' in mem_str[0], "expected memory data"
-    json_str += mem_str[0]
+    #  mem_str = noisefree(part2.decode())
+    #  assert len(mem_str) == 1, 'Expected one element for memory dump'
+    #  assert 'memory' in mem_str[0], "expected memory data"
+    #  json_str += mem_str[0]
 
-    br_tbl_str = noisefree(part3.decode())
-    assert len(br_tbl_str) == 1, 'Expected one element for br tbl dump'
-    assert 'br_table' in br_tbl_str[0], "expected br_table data"
-    json_str += br_tbl_str[0]
+    #  br_tbl_str = noisefree(part3.decode())
+    #  assert len(br_tbl_str) == 1, 'Expected one element for br tbl dump'
+    #  assert 'br_table' in br_tbl_str[0], "expected br_table data"
+    #  json_str += br_tbl_str[0]
 
 
-    dump_end = noisefree(part4.decode())
-    assert len(dump_end) == 2, 'Expected two element dump_end'
-    assert 'DUMP END' in dump_end[1], "expected 'DUMP END' as last data"
-    json_str += dump_end[0]
+    #  dump_end = noisefree(part4.decode())
+    #  assert len(dump_end) == 2, 'Expected two element dump_end'
+    #  assert 'DUMP END' in dump_end[1], "expected 'DUMP END' as last data"
+    #  json_str += dump_end[0]
 
-    #  #dbgprint("PRIOR parsing json")
-    #  #dbgprint(json_str)
-    parsed = json.loads(json_str)
-    #  dbgprint("The parsed element")
+    #  #  #dbgprint("PRIOR parsing json")
+    #  #  #dbgprint(json_str)
+    #  parsed = json.loads(json_str)
+    #  #  dbgprint("The parsed element")
+    #  #  dbgprint(parsed)
+
+    #  tbl = parsed['table']
+    #  tbl['elements'] = list(map(bytes_2_int, receive_raw_bytes(raw1)))
+
+    #  lm = parsed['memory']
+    #  lm['bytes']=raw2
+    #  brtbl = parsed['br_table']
+    #  brtbl['size'] = int(brtbl['size'], 16)
+    #  brtbl['labels']= list(map(bytes_2_int, receive_raw_bytes(raw3)))
+
+    #  dbgprint("dump")
     #  dbgprint(parsed)
 
-    tbl = parsed['table']
-    tbl['elements'] = list(map(bytes_2_int, receive_raw_bytes(raw1)))
-
-    lm = parsed['memory']
-    lm['bytes']=raw2
-    brtbl = parsed['br_table']
-    brtbl['size'] = int(brtbl['size'], 16)
-    brtbl['labels']= list(map(bytes_2_int, receive_raw_bytes(raw3)))
-
-    dbgprint("dump")
-    dbgprint(parsed)
-
-    old = OFFSET
-    OFFSET = parsed['start'][0]
-    dbgprint(f'OFFSET from {old} to {OFFSET}')
-    dummy_dump['start'] = [OFFSET]
-    DUMP = parsed
-    return True
+    #  old = OFFSET
+    #  OFFSET = parsed['start'][0]
+    #  dbgprint(f'OFFSET from {old} to {OFFSET}')
+    #  dummy_dump['start'] = [OFFSET]
+    #  DUMP = parsed
+    #  return True
 
 def dumpvalues(_):
-    global VALS
-    clean_send('11\n')
-    send_signal(_)
+    global VALS, clientSocket, sockets
+    sock = sockets[clientSocket]
+    if safe_send(sock, '11\n'.encode()) < 0:
+        print("error sending dump")
 
-    byts = recv_bytes()
-
-    nf = noisefree(byts.decode())
-    assert len(nf) == 3, 'Expected 3 elements for dump values'
-    assert nf[0] == 'STACK START'
-    assert 'stack' in nf[1]
-    assert nf[2] == 'STACK END'
-    
-    #  #dbgprint("PRIOR parsing json")
-    #  #dbgprint(nf[1])
-    parsed = json.loads(nf[1])
-    dbgprint("The Values")
-    dbgprint(parsed)
-
-    VALS = parsed
     return True
+    #  clean_send('11\n')
+    #  send_signal(_)
+
+    #  byts = recv_bytes()
+
+    #  nf = noisefree(byts.decode())
+    #  assert len(nf) == 3, 'Expected 3 elements for dump values'
+    #  assert nf[0] == 'STACK START'
+    #  assert 'stack' in nf[1]
+    #  assert nf[2] == 'STACK END'
+    
+    #  #  #dbgprint("PRIOR parsing json")
+    #  #  #dbgprint(nf[1])
+    #  parsed = json.loads(nf[1])
+    #  dbgprint("The Values")
+    #  dbgprint(parsed)
+
+    #  VALS = parsed
+    #  return True
 
 def process_raw(raw1):
     return raw1
@@ -426,44 +435,120 @@ def add_bp(inp):
 
 
 
+def close(_):
+    global clientSocket
+    sock = sockets[clientSocket]
+    sock.close()
+
+def safe_send(sock, content):
+    global WITH_INTERRUPT
+
+    i = sock.send(content)
+    #  if WITH_INTERRUPT:
+    #      send_signal('du')
+
+    return i
+
+
+def send_the_signal(a):
+    import time
+    while True:
+        time.sleep(400/1000)
+        send_signal("dum")
+
 def connect(inputs):
-    global sockets, PORT, HOST
+    global sockets, PORT, HOST, clientSocket, WITH_INTERRUPT
     #  inputs = "connect:all:0x01"
 
     vals = inputs.split(":")
-    name = vals[1]
-    flags = vals[2]
+    name =None
+    flags = None
+    if len(vals) == 3:
+        name = vals[1]
+        flags = vals[2]
+    else:
+        flags = vals[1]
 
     b = int(flags, 16).to_bytes(1, 'big')
+
+    if name is None:
+        if int(flags, 16) == 3:
+            name = 'io'
+        elif int(flags, 16)  == 8:
+            name = 'dbg'
+        elif int(flags, 16) == 16:
+            name ='event'
+        else:
+            name = str(int(flags, 16))
+
     print(f'connecting to PORT {PORT} socket `{name}` with flags `{flags}`')
+    if WITH_INTERRUPT:
+        si=threading.Thread(target=send_the_signal, args=(2,))
+        si.start()
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((HOST, PORT))
+    
     print(f'sending socket config {b}')
-    sock.send(b)
+    safe_send(sock, b)
 
     r = sock.recv(1) #echo the config
     assert r == b, "not equal config"
     print(f'received concifg {r}')
-    if int(flags, 16) == 1:
+    intf = int(flags, 16)
+    if intf == 3 or intf == 1:
         r = sock.recv(4)
         print(f'maximum recv buf size for device {r}')
 
+    if  intf == 3:
+        evt = threading.Thread(target=start_recv, args=(sock,))
+        evt.start()
+
+    if intf == 8:
+        start_recv(sock)
+
     sockets[name] = sock
-    print(f'total sockets now #{len(sockets)}')
+    clientSocket = name
+    #  print(f'total sockets now #{len(sockets)}')
     print(f'new socket fd={sockets[name].fileno()} `{name}`= {sockets[name]} ')
     return True
 
+def start_recv(sock):
+    print("START receive Debug info")
+    timeout_secs = 1
+    _buff = b''
+    while True:
+        ready = select.select([sock], [],[], timeout_secs)
+        #  send_signal("send")
+        if not ready[0]:
+            continue
+
+        _buff += sock.recv(1024)
+        try:
+            d = _buff.decode()
+            print(_buff.decode(), end="")
+            _buff = b''
+        except:
+            print( "failed to decode")
+
+
 def send_socket(inputs):
-    global sockets
+    global sockets, clientSocket
     vals = inputs.split(':')
-    name = vals[1]
-    content = vals[2]
+    name = clientSocket
+    content = vals[1]
+
+    if len(vals) == 3 :
+        name = vals[1]
+        content = vals[2]
+
     sock = sockets.get(name, None)
     if sock is None:
         print(f"no such socket `{name}`")
         return True
     print(f'sending to socket `{name}` fd={sock.fileno()}#{len(content)} bytes content `{content}`')
-    i = sock.send(content.encode())
+
+    i = safe_send(sock, content.encode())
 
     print(f"done sending #{i} bytes")
     return True
@@ -1007,6 +1092,8 @@ def uploadDebugsession(_):
 
 
 def dbg(inp):
+    offset = "ERRORERROR"
+    code_addr = "ERRORORORORO"
     inputs = inp.split(':')
     bp_addr = inputs[1]
     amount_chars = math.floor(len(bp_addr[2:]) / 2)
@@ -1039,8 +1126,8 @@ def get_handler(inp):
     #  instructions = ['dbg', 'interrupt', 'send', 'list', 'pause', 'addbp', 'dump', 'run', 'connect', 'values', 'state', 'display', 'debugsession', 'upload', 'serialize']
     #  handles = [dbg, send_interrupt, send_signal, list_pid, pause, add_bp, dump, run, connect, dumpvalues, sendstate, display, debugsession, uploadDebugsession, serialize_test]
 
-    instructions = ['connect', 'send','add_bp', 'dump']
-    handles = [connect, send_socket, add_bp, dump]
+    instructions = ['connect', 'send','add_bp', 'dump', 'close', 'local']
+    handles = [connect, send_socket, add_bp, dump, close, dumpvalues]
     for idx,i in enumerate(instructions):
         if i in inp:
             return handles[idx]
@@ -1048,11 +1135,12 @@ def get_handler(inp):
     return default
 
 if __name__ == "__main__":
-    find_process()
-    open_tmp_file()
+    if WITH_INTERRUPT:
+        find_process()
+    #  open_tmp_file()
     while RUN:
         inp = input()
         f = get_handler(inp)
         RUN = f(inp)
 
-    fp.close()
+    #  fp.close()
