@@ -200,6 +200,7 @@ def read_types(container, lines) -> None:
         
         type_idx = ''.join(re.findall(r'\d+', words[1]))
         assert type_idx.isdigit()
+        type_idx = int(type_idx)
 
         #str of the form (i32, f64) -> i32
         signature_str = ''.join(words[2:])
