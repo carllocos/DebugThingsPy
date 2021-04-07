@@ -1,11 +1,13 @@
 from __future__ import annotations
 from typing import Union, List, Any
-from web_assembly import SectionDetails, ModuleDetails, DBGInfo, Codes, Code
+from web_assembly import SectionDetails, ModuleDetails, DBGInfo, Codes, Code,Type, Types
+
+#TODO distinguish between types declared and types defined when function defined. Make abstraction over type signature in Type
 
 class Function:
     def __init__(self,
                 idx: int,
-                signature: int,
+                signature: Type,
                 name: Union[str, None],
                 export_name: Union[str, None],
                 import_name: Union[str, None],
@@ -26,7 +28,7 @@ class Function:
         return self.__name
     
     @property
-    def signature(self) -> int:
+    def signature(self) -> Type:
         return self.__signature
 
     @property
@@ -59,9 +61,9 @@ class Functions:
      
     def __getitem__(self, key: Any) -> Function:
         if isinstance(key, str):
-            return self.__str2funcs[key]
+            return self.__str2funcs.get(key, None)
         else:
-            return self.__int2funcs[key]
+            return self.__int2funcs.get(key, None)
 
     @property
     def exports(self) -> List[Function]:
@@ -72,7 +74,7 @@ class Functions:
        return list(filter(lambda f: f.import_name is not None, self.__int2funcs.values()))
 
     @staticmethod
-    def from_dbg(dbg_info: DBGInfo, codes: Union[Codes, None] = None):
+    def from_dbg(dbg_info: DBGInfo, codes: Codes, types: Types ):
         sec : SectionDetails = dbg_info[0]
         mod : ModuleDetails = dbg_info[1]
 
@@ -80,15 +82,22 @@ class Functions:
         # code = mod['code']
         exports = mod['exports']
         imports = {}
-        codes = {}
         funcs = []
         for f in mod['funcs']:
+
+            #TODO take into acount lack of type declaration 
             sign = f['signature']
+            if isinstance(sign, int):
+                sign = types[sign]
+            else:
+                sign = Type(sign, [], [], None)
+                
             idx = f['idx']
             name = f.get('name', None)
             export_name = exports.get(idx, None)
             import_name = imports.get(idx, None)
-            code = codes.get(idx, None)
+            code = codes[idx]
+
             funcs.append(Function(idx, sign, name, export_name, import_name, code))
 
         func_header = sec['function']

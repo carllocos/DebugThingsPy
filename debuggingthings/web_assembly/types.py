@@ -13,7 +13,7 @@ class Type:
         self.__name = name
 
     @property
-    def params(self) -> Parameters:
+    def parameters(self) -> Parameters:
         return self.__params
 
     @property
@@ -39,13 +39,13 @@ class Types:
         self.__str2types = str2types
         self.__int2types = int2types
      
-    def __getitem__(self, key: Any) -> Type:
-        if not isinstance(key, Union[str, int]):
-            pass
+    def __getitem__(self, key: Any) -> Union[Type, None]:
         if isinstance(key, str):
-            return self.__str2types[key]
+            return self.__str2types.get(key, None)
+        elif isinstance(key, int):
+            return self.__int2types.get(key, None)
         else:
-            return self.__int2types[key]
+            raise ValueError("`key` must be an int or str")
 
     @staticmethod
     def from_dbg(dbg_info: DBGInfo):

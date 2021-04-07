@@ -21,23 +21,23 @@ class WAModule:
         self.__globals = []
 
     @property
-    def section_types(self) -> Types:
+    def types(self) -> Types:
         return self.__types
 
     @property
-    def section_functions(self) -> Functions:
+    def functions(self) -> Functions:
         return self.__funcs
 
     @property
-    def section_exports(self) -> Functions:
+    def exports(self) -> Functions:
         return self.__funcs.exports
 
     @property
-    def section_imports(self) -> Functions:
+    def imports(self) -> Functions:
         return self.__funcs.imports
 
     @property
-    def section_code(self) -> Codes:
+    def codes(self) -> Codes:
         return self.__codes
 
     @classmethod
@@ -49,9 +49,13 @@ class WAModule:
     def from_dbginfo(csl, dbg_info: DBGInfo) -> WAModule:
         types = Types.from_dbg(dbg_info)
         codes = Codes.from_dbg(dbg_info)
-        funcs = Functions.from_dbg(dbg_info)
+        funcs = Functions.from_dbg(dbg_info, codes, types)
         dbgprint(f'The exports {funcs.exports}')
         return  csl(types, funcs, codes)
+
+    @classmethod
+    def test(cls):
+        return cls.from_file("../examples/fac_case/fac.wat")
 
 def dbgprint(s):
     logging.debug(s)
