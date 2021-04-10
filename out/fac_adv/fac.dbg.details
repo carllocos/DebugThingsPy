@@ -1,0 +1,51 @@
+
+fac.dbg.wasm:	file format wasm 0x1
+
+Section Details:
+
+Type[6]:
+ - type[0] (i32) -> nil
+ - type[1] (i32) -> i32
+ - type[2] (f32) -> nil
+ - type[3] (f64) -> nil
+ - type[4] (i64) -> nil
+ - type[5] () -> nil
+Function[6]:
+ - func[0] sig=0 <fi32tov>
+ - func[1] sig=2 <ff32tov>
+ - func[2] sig=4 <fi64tov>
+ - func[3] sig=3 <ff64tov>
+ - func[4] sig=1 <fac>
+ - func[5] sig=5 <main>
+Table[1]:
+ - table[0] type=funcref initial=5 max=5
+Memory[1]:
+ - memory[0] pages: initial=2
+Export[1]:
+ - func[5] <main> -> "main"
+Elem[1]:
+ - segment[0] flags=0 table=0 count=5 - init i32=0
+  - elem[0] = func[5] <main>
+  - elem[1] = func[3] <ff64tov>
+  - elem[2] = func[2] <fi64tov>
+  - elem[3] = func[1] <ff32tov>
+  - elem[4] = func[0] <fi32tov>
+Code[6]:
+ - func[0] size=2 <fi32tov>
+ - func[1] size=2 <ff32tov>
+ - func[2] size=2 <fi64tov>
+ - func[3] size=2 <ff64tov>
+ - func[4] size=23 <fac>
+ - func[5] size=64 <main>
+Custom:
+ - name: "name"
+ - func[0] <fi32tov>
+ - func[1] <ff32tov>
+ - func[2] <fi64tov>
+ - func[3] <ff64tov>
+ - func[4] <fac>
+ - func[5] <main>
+ - func[5] local[0] <f32>
+ - func[5] local[1] <f64>
+ - func[5] local[2] <i32>
+ - func[5] local[3] <i64>

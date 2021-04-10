@@ -1,0 +1,18 @@
+{
+	"program":"examples/fac_adv/fac.wast",
+	"out":"out/fac_adv/",
+	"devices": [
+		{
+			"name": "remote fac",
+			"host": "xxxx",
+			"port": 8080,
+			"serial": "/dev/ttyUSB0",
+			"enable": false
+		},
+		{
+			"name": "local fac",
+			"port": 8080
+		}
+	]
+
+}
