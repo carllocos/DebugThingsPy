@@ -3,31 +3,37 @@ from typing import Union
 
 import os
 from pathlib import PurePath
+import shutil
 
 #TODO security!!!!!
-def wat2wasm(file: Union[str, PurePath], out: Union[str, PurePath], des: Union[str, PurePath] = '') -> bytes:
+def wat2wasm(file: Union[str, PurePath], out_filename: Union[str, PurePath], des: Union[str, PurePath, None] = '') -> bytes:
 
     srcfile = PurePath(file) if isinstance(file, str) else file
 
-    if des != '':
-        des = PurePath(des) if isinstance(des, str) else des
-    out = PurePath(out + '.wasm') if isinstance(out, str) else out
-    outfile = out
-    if des != '':
-        outfile = des.joinpath(out)
+    destDirectory = None
+    if des is None:
+        destDirectory = PurePath('tmp_build/')
+    elif isinstance(des, str):
+        destDirectory = PurePath(des) if des != '' else ''
+    else:
+       destDirectory = des
 
-    _make_parentsdir(outfile)
+    out_filename = PurePath(out_filename + '.wasm') if isinstance(out_filename, str) else out_filename
+    if destDirectory != '':
+        out_filename = destDirectory.joinpath(out_filename)
 
-    cmd = f'wat2wasm {srcfile} -o {outfile}'
-    retcode = os.system(cmd)
-    if retcode != 0:
+    _make_parentsdir(out_filename)
+
+    cmd = f'wat2wasm {srcfile} -o {out_filename}'
+    if os.system(cmd) != 0:
         print("something wrong")
     else:
-        with open(outfile, 'rb') as _iobuff:
+        _bytes = b''
+        with open(out_filename, 'rb') as _iobuff:
             _bytes = _iobuff.read()
-            # print(_bytes.hex())
-            # print(f'the lenght {len(_bytes)}')
-            return _bytes
+        if des is None:
+            shutil.rmtree(destDirectory)
+        return _bytes
 
 
 def wasm_sourcemaps(src: PurePath, out: PurePath) -> None:

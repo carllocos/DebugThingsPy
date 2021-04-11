@@ -5,6 +5,7 @@ import os
 from pathlib import PurePath
 import re
 import logging
+import shutil
 
 from utils import wasm_sourcemaps
 
@@ -24,7 +25,7 @@ def raise_error(m):
 #TODO 
 # 1. use wasmtime to generate usefull compact information about header, types and funbctions
 # 2. use wat2wasm -v to generate all related functions body information
-def generate_dbginfo(path: Union[PurePath, str], out: Union[PurePath, str]) -> DBGInfo:
+def generate_dbginfo(path: Union[PurePath, str], out: Union[PurePath, str, None]) -> DBGInfo:
     """
     `file` is expected to point towards content produced by wasm-objdump v1.0.13 tool with headers flag
         e.g >> `wasm-objdump code.wat -h`
@@ -37,16 +38,17 @@ def generate_dbginfo(path: Union[PurePath, str], out: Union[PurePath, str]) -> D
     fname = filepath.name.split(".")[0]# remove extension 
     dbgprint(f'GOT PATH ext {ext} name {filepath.name} -> {path}')
 
-    out = PurePath(out) if isinstance(out, str) else out
+    outDirectory = out
+    if out is None:
+        outDirectory = PurePath('temporary/')
+    elif isinstance(out, str):
+        outDirectory  = PurePath(out)
+    else:
+        outDirectory = out
 
-   
-
-    # parent_path = "/".join(filepath.parts[:-1]) #TODO change name for generic sol
-    # tmp_dir =  PurePath(parent_path) 
-
-    headers_path = out.joinpath(fname + '.dbg.headers')
-    details_path = out.joinpath(fname + '.dbg.details')
-    srcmap_path = out.joinpath(fname +  '.dbg.verbose.txt')
+    headers_path = outDirectory.joinpath(fname + '.dbg.headers')
+    details_path = outDirectory.joinpath(fname + '.dbg.details')
+    srcmap_path = outDirectory.joinpath(fname +  '.dbg.verbose.txt')
 
 
     dbgprint(f"""file name {fname}
@@ -56,15 +58,16 @@ def generate_dbginfo(path: Union[PurePath, str], out: Union[PurePath, str]) -> D
               """)
 
 
-    # wasm_headers(filepath, headers_path)
-    # wasm_details(filepath, details_path)
-    wasm_sourcemaps(filepath, out)
+    wasm_sourcemaps(filepath, outDirectory)
 
     sec = load_sections_info(headers_path)
     mod = load_module_details(details_path)
     mod['codes'] = read_sourcemap(srcmap_path)
 
     sec['no_extension_filename'] = fname
+    if out is None:
+        shutil.rmtree(outDirectory)
+
     return (sec, mod)
 
 def load_sections_info(file: Union[PurePath, str]) -> SectionDetails:

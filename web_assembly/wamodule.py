@@ -3,11 +3,15 @@ from typing import Union, Dict
 from pathlib import PurePath
 import logging
 
+from utils import wat2wasm
 from web_assembly import Functions, Tables, Globals, Memories, Types, Type, Codes
 from web_assembly import generate_dbginfo, load_module_details, DBGInfo
 
 
 logging.basicConfig(level=logging.DEBUG)
+
+def dbgprint(s):
+    logging.debug(s)
 
 
 class WAModule:
@@ -64,11 +68,19 @@ class WAModule:
         return self.__buildout
 
     @build_out.setter
-    def build_out(self, bo) -> None:
-        self.__buildout = bo
+    def build_out(self, _buildout) -> None:
+        self.__buildout = _buildout
+
+    def compile(self) -> bytes:
+        fp = self.filepath
+        fn = self.no_extension_filename
+        out = self.build_out
+        _bytes = wat2wasm(fp, fn, out)
+        print(f'#{len(_bytes)}')
+        return _bytes
 
     @classmethod
-    def from_file(cls, path: str, out: str) -> WAModule:
+    def from_file(cls, path: str, out: Union[str, None] = None) -> WAModule:
         dbg_info = generate_dbginfo(path, out)
         wm = WAModule.from_dbginfo(dbg_info)
         wm.filepath = path
@@ -86,10 +98,3 @@ class WAModule:
         dbgprint(f'The exports {funcs.exports}')
         return csl(types, funcs, codes)
 
-    # @classmethod
-    # def test(cls):
-    #     return cls.from_file("../examples/fac_case/fac.wat")
-
-
-def dbgprint(s):
-    logging.debug(s)

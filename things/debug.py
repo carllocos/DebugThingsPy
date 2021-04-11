@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Union
+
 from communication import protocol as ptc
 from web_assembly import wa as WA
 from web_assembly import WAModule, Expr
@@ -112,8 +115,12 @@ class Debugger:
     def update_fun(self, code_info):
         pass
 
-    def commit(self):
-        wasm = self.__changeshandler.commit()
+    def commit(self, mod: Union[WAModule, None] = None):
+        wasm = None
+        if mod is not None:
+            wasm = mod.compile()
+        else:
+            wasm = self.__changeshandler.commit()
         self.device.commit(wasm)
         
     def debug_session(self, code_info=False):
