@@ -15,8 +15,11 @@ SectionDetails = Dict[str, Dict[str, Union[str, int]]]
 ModuleDetails = Dict[str, str]
 DBGInfo = Tuple[SectionDetails, ModuleDetails]
 
+DEBUG = False
 def dbgprint(s):
-    logging.debug(s)
+    global DEBUG
+    if DEBUG:
+        logging.debug(s)
 
 
 def raise_error(m):

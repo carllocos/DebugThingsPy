@@ -1,10 +1,9 @@
 from __future__ import annotations
 from typing import Union
 
-from communication import protocol as ptc
+from utils import valid_addr
 from web_assembly import wa as WA
 from web_assembly import WAModule, Expr
-from boards import dummy
 from things import ChangesHandler, DebugSession
 
 class Debugger:
@@ -18,6 +17,7 @@ class Debugger:
         self.__changeshandler = ChangesHandler(wamodule)
         self.__wamodule = wamodule
         self.__debugsession = DebugSession()
+        self.__proxy_config = None
         dev.debugger = self
 
 
@@ -65,6 +65,11 @@ class Debugger:
             print(f"connection failed to {self.device.name}")
         else:
             print(f'connected to {self.device.name}') 
+        pc = self.__proxy_config
+
+        if pc is not None and len(pc.get('proxy', [])) > 0:
+            self.device.send_proxies(pc)
+
 
     def halt(self, code_info):
         print('received halt request')
@@ -122,7 +127,44 @@ class Debugger:
         else:
             wasm = self.__changeshandler.commit()
         self.device.commit(wasm)
+
+
+    def validate_proxyconfig(self, mod: WAModule, config: dict) -> dict:
+        cleaned_config = {'proxy': [], 'host':None, 'port': None}
+        if config.get('proxy', False):
+            for n in config['proxy']:
+                name = n
+                #FIXME temporary cleanedup
+                if isinstance(n, str) and n[0] == '$':
+                    name = n[1:]
+                f = mod.functions[name]
+                if f is None:
+                    raise ValueError(f'configuration error: proxy function `{name} is not declared in module')
+                cleaned_config['proxy'].append(f.idx) 
+
+        if config.get('host', False):
+            if not valid_addr(config['host']):
+                raise ValueError(f"configuration error: invalid host address `{config['addr']}")
+            cleaned_config['host'] = config['host']
+        if config.get('port', False):
+            port = config['port']
+            if not isinstance(port, int) or port <= 0:
+                raise ValueError(f'configuration error: configured an incorrect port number for proxy requests')
+            cleaned_config['port'] = port
+
+        return cleaned_config
+
+    def upload_proxies(self, proxy_config: Union[None, dict] = None) -> None:
+        if proxy_config is None:
+            proxy_config = self.__proxy_config
+        if proxy_config is not None:
+            self.device.send_proxies(proxy_config)
         
+    def upload(self, mod: WAModule, config: dict) -> None:
+        cleaned_config = self.validate_proxyconfig(mod, config)
+        wasm = mod.compile()
+        self.device.upload(wasm, cleaned_config)
+
     def debug_session(self, code_info=False):
         if not self.__received_session and not self.__current_bp:
             print("no bp reached yet")
@@ -148,75 +190,8 @@ class Debugger:
     def receive_session(self, debugsess):
         self.__received_session = True
         cleaned = debugsess.clean_session(self.device.offset)
-        # _session = self.device.serialize_session(cleaned)
         self.device.receive_session(cleaned)
-        # _reqs = self.__medium.send(_msgs, self.__device)
-        # self.__medium.wait_for_answers(_reqs)
 
-    
-    #FOR DEBUG
-    # def get_med(self):
-    #     return self.__medium
-    # def get_encoder(self):
-    #     return self.__serializer
-
-    # def get_serial(self):
-    #     return self.__medium.get_serial()
-
-    # def to_bp(self, addr):
-    #     self.remove_breakpoint(self.breakpoints()[0])
-    #     self.add_breakpoint(addr, wait_for_at=False)
-    #     self.__advance_ctr = self.__advance_ctr + 1
-    #     self.run()
-
-    #     #  print("Producing for At msg")
-    #     #  print(self.get_serial().read_until(b'\n'))
-    #     code_info  = BreakPoint(addr)
-    #     state = State(self.__device, code_info)
-    #     _msgs = self.__serializer.at_msg(state)
-    #     _reqs = self.__medium.send(_msgs, self.__device)
-    #     self.__medium.wait_for_answers(_reqs)
-
-# class State:
-
-#     def __init__(self, dev, code_info):
-#         self.__dev = dev
-#         self.__code_info = code_info
-
-#     def device(self):
-#         return self.__dev
-
-#     def code_info(self):
-#         return self.__code_info
-
-
-# class BreakPoint:
-
-#     def __init__(self, addr):
-#         self.__addr = addr
-
-
-    # def hex_addr(self):
-    #     return self.__addr
-
-# def intialize(self, code_info):
-#     if not self.start_connection():
-#         print('connection failed to start')
-#         return
-
-#     state = State(self.__device, code_info)
-#     _msgs = self.__serializer.initialize_step(state)
-#     _reqs = self.__medium.send(_msgs, self.__device)
-#     self.__medium.wait_for_answers(_reqs)
-
-# def start_connection(self):
-#     return self.__medium.start_connection(self.__device)
-
-    # def receive_session_test(self):
-    #     self.__received_session = True
-    #     dmp = dummy.dummy_dump['dump']
-    #     vals = dummy.dummy_vals['local_dump']
-    #     cleaned = self.__serializer.clean_session(dmp, vals, self.__serializer.get_offset())
-    #     _msgs = self.__serializer.serialize_session(cleaned)
-    #     _reqs = self.__medium.send(_msgs, self.__device)
-    #     self.__medium.wait_for_answers(_reqs)
+    def add_proxyconfig(self, proxy_config: dict) -> None:
+        cleaned_config = self.validate_proxyconfig(self.module, proxy_config)
+        self.__proxy_config = cleaned_config

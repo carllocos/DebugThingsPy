@@ -1,17 +1,19 @@
 {
-	"program":"examples/fac_adv/fac.wast",
-	"out":"out/fac_adv/",
+	"program":"examples/fac.wast",
+	"out":"out/",
+	"proxy": ["fac"],
 	"devices": [
 		{
 			"name": "remote fac",
-			"host": "xxxx",
-			"port": 8080,
+			"host": "192.168.1.3",
+			"port": 80,
 			"serial": "/dev/ttyUSB0",
-			"enable": false
+			"enable": true
 		},
 		{
 			"name": "local fac",
-			"port": 8080
+			"port": 8080,
+			"enable": true
 		}
 	]
 

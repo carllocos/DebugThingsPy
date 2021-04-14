@@ -246,16 +246,19 @@ class Frame:
         return self.__cleaned_sv
 
     def as_dict(self):
-        d =  {'block_type': BlockType.tostr(self.block_type),
-              #  'module': self.module,
-              #  'name': self.name,
+        _func = self.module.functions[self.func_id]
+        _fn = _func.any_name()
+        d =  {
               'fidx': self.func_id,
-              #  'idx': self.idx,
               'fp': self.fp,
               'sp': self.sp,
-              'ret_addr': self.ret_addr,
-              'block_key': self.__block_key
+              'return': self.ret_addr,
               }
+        if _fn is not None:
+            d['fun_name'] = _fn
+        _ra = self.module.addr(self.ret_addr)
+        if _ra is not None:
+            d['return']  = str(_ra)
         return d
 
     def __repr__(self):

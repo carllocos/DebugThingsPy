@@ -32,21 +32,37 @@ class Function:
         return self.__signature
 
     @property
-    def export_name(self) -> Union[str, bool]:
+    def export_name(self) -> Union[str, None]:
         return self.__export 
 
     @property
-    def import_name(self) -> Union[str, bool]:
+    def import_name(self) -> Union[str, None]:
         return self.__import
 
     @property
     def code(self) -> Union[Code, None]:
         return self.__code
 
+    def any_name(self) -> Union[str, None]:
+        if self.name is not None:
+            return self.name
+        elif self.export_name is not None:
+            return self.export_name
+        else:
+            return self.import_name
+
+    def __str__(self):
+        prefix = '<'
+        if self.export_name is not None:
+            prefix += 'exported '
+        elif self.import_name is not None:
+            prefix += 'imported '
+        prefix += f'fun {self.idx}'
+        return f'{prefix}: {self.any_name()} {str(self.signature)}>'
+
 class Functions:
     def __init__(self, funcs: List[Function], start: int, end: int):
         #TODO start & end
-
         str2funcs, int2funcs = {}, {}
         for f in funcs:
             int2funcs[f.idx] = f
@@ -56,6 +72,7 @@ class Functions:
             if f.export_name is not None and f.export_name != f.name:
                 str2funcs[f.export_name] = f
 
+        self.__funcs = funcs
         self.__str2funcs = str2funcs
         self.__int2funcs = int2funcs
      
@@ -72,6 +89,10 @@ class Functions:
     @property
     def imports(self) -> List[Function]:
        return list(filter(lambda f: f.import_name is not None, self.__int2funcs.values()))
+
+    def print(self):
+        for f in self.__funcs:
+            print(str(f))
 
     @staticmethod
     def from_dbg(dbg_info: DBGInfo, codes: Codes, types: Types ):

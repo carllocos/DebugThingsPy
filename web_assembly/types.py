@@ -28,8 +28,20 @@ class Type:
     def idx(self) -> int:
         return self.__idx
 
+    def copy(self) -> Type:
+        _p = [p for p in self.parameters]
+        _r = [r for r in self.results]
+        _n = self.name
+        return Type(self.idx, _p,_r, _n)
+    def __str__(self):
+        return f'{str(self.parameters)} -> {str(self.results)}'
+
 class Types:
     def __init__(self, types: List[Type], start: int, end: int):
+        self.__start = start
+        self.__end = end
+        self.__all = types
+
         str2types, int2types = {}, {}
         for t in types:
             int2types[t.idx] = t
@@ -46,6 +58,23 @@ class Types:
             return self.__int2types.get(key, None)
         else:
             raise ValueError("`key` must be an int or str")
+
+    @property
+    def start(self):
+        return self.__start
+
+    @property
+    def end(self):
+        return self.__end
+
+    def aslist(self):
+        return self.__all
+
+    def copy(self):
+        _types = []
+        for t in self.aslist():
+            _types.append(t.copy())
+        return Types(_types, self.start, self.end)
 
     @staticmethod
     def from_dbg(dbg_info: DBGInfo):

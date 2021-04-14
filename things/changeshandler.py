@@ -39,7 +39,6 @@ class ChangesHandler:
         fn = self.module.no_extension_filename + '_version' + str(self.version)
         out = self.module.build_out
         _bytes = wat2wasm(fp, fn, '' if out is None else out)
-        print(f'#{len(_bytes)}')
         return _bytes
 
     def change(self, nd: SessionVersion) -> None:

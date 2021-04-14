@@ -10,9 +10,8 @@ import select
 
 
 from interfaces import AMedium, AMessage
-# from communication import request as req
 
-DEBUG = True
+DEBUG = False
 
 def dbgprint(s):
     curframe = inspect.currentframe()
@@ -60,8 +59,6 @@ class Sockets(AMedium):
         self.__serializer = None
         self.__socket = None
         self.__sockAtBp = None
-        self.__PORT = 8080
-        self.__HOST = 'localhost'
         self.__fp = None
 
         assert _maxsend > 0, f'{_maxsend} > {0}'

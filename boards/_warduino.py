@@ -27,13 +27,14 @@ Interrupts = {
     'offset': '0x23',
     'locals': '11',
     'receivesession': '22',
+    'recvproxies': '25',
     'rmvbp': '07',
     'run': '01',
     'step': '04',
-    'updateModule' : '24'
+    'updateModule' : '24',
 }
 
-DEBUG = True
+DEBUG = False
 
 def dbgprint(s):
     curframe = inspect.currentframe()
@@ -48,22 +49,7 @@ def errprint(s):
     sys.exit()
 
 
-# class AMessage():
-#     def __init__(self, content, reply=None):
-#         self.__content = content
-#         self.__reply = reply
-
-#     def has_reply(self):
-#         return self.__reply is not None
-
-#     def get_reply(self, aSerializer, sock):
-#         f = self.__reply
-#         return f(aSerializer, sock)
-
-#     @property
-#     def content(self):
-#         return self.__content
-
+proxy_config = None
 
 class WARDuino(ASerial):
     def __init__(self):
@@ -114,7 +100,7 @@ class WARDuino(ASerial):
     @property
     def step_state(self):
         d = self.__stepdump
-        print(f"The dump {d}")
+        dbgprint(f"The dump {d}")
         off = d['start'][0]
         pc  = util.substract_hexs([d['pc'], off  ])
         return (pc, {'dump': d}, {'local_dump': self.__stemplocals})
@@ -198,6 +184,40 @@ class WARDuino(ASerial):
     def halt(self, state):
         raise NotImplementedError
 
+
+    def upload(self, wasm: bytes, config: dict) -> None:
+        global proxy_config
+        proxy_config = config
+
+        interrupt = Interrupts['updateModule']
+        ask4commit = AMessage(interrupt + '\n', receive_ack)
+        sers = encoder.serialize_wasm(interrupt, wasm, self.max_bytes)
+
+        l = len(sers)
+        msgs = [ask4commit]
+        for idx, content in enumerate(sers):
+            rpl = receive_uploaddone if (idx + 1) == l else receive_ack
+            dbgprint(f'#{len(content) + 1} Content {content}')
+            msgs.append(
+                AMessage(content + '\n',  rpl))
+        for m in msgs:
+            self.medium.send(m)
+
+    def send_proxies(self, config: dict) -> None:
+        lst = config['proxy']
+        h = config['host']
+        p = config['port']
+
+        sers = encoder.serialize_proxies(Interrupts['recvproxies'], h, p, lst, self.max_bytes)
+        msgs = []
+        for i, s in enumerate(sers):
+            rpl =  receive_done if (i + 1) == len(sers) else receive_ack
+            m  = AMessage(s + '\n', rpl)
+            msgs.append(m)
+
+        for m in msgs:
+            self.medium.send(m)
+
     def commit(self, wasm):
         interrupt = Interrupts['updateModule']
         ask4commit = AMessage(interrupt + '\n', receive_ack)
@@ -208,23 +228,9 @@ class WARDuino(ASerial):
         msgs = [ask4commit]
         for idx, content in enumerate(sers):
             rpl = receive_commitdone if (idx + 1) == l else receive_ack
-            print(f'#{len(content) + 1} Content {content}')
+            dbgprint(f'#{len(content) + 1} Content {content}')
             msgs.append(
                 AMessage(content + '\n',  rpl))
-        x = msgs[1].content
-        r = x[10:-2]
-        no = 0
-        h= 'la'
-        while h != '':
-            h = r[no: no + 2]
-            if h == '':
-                break
-            i = int('0x' + h, 16)
-            print(i, end=' ')
-            no += 2
-        print()
-        # offmsg = AMessage(Interrupts['offset'] + '\n', receive_offset)
-        # msgs.append(offmsg)
         for m in msgs:
             self.medium.send(m)
 
@@ -453,6 +459,11 @@ def receive_done(aSerializer, aSocket):
     aSocket.recv_bytes(until=b'done!\n')
     dbgprint("received done")
 
+def receive_uploaddone(warduino, aMedium):
+    global proxy_config 
+    aMedium.recv_bytes(until=b'done!\n')
+    warduino.send_proxies(proxy_config)
+    proxy_config = None
 
 def bytes2int(data):
     ints = []

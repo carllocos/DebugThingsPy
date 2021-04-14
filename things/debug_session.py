@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Union
+
 import struct as struct #https://www.delftstack.com/howto/python/how-to-convert-bytes-to-integers/
 
 class SessionVersion(object):
@@ -57,10 +60,13 @@ class SessionVersion(object):
         return self.__original_vals
 
     @property
-    def instr(self):
+    def pc(self):
         if self.__instr is None:
             m  = self.__module
-            self.__instr = m.codes.addr(self.__pc)
+            i = m.codes.addr(self.__pc)
+            if i is None:
+                i = self.__pc
+            self.__instr = i
         return self.__instr
 
     def clean_session(self, new_offset):
@@ -71,6 +77,11 @@ class DebugSession:
 
     def __init__(self):
         self.__sessions = []
+
+    def version(self, v: int)-> Union[SessionVersion, None]:
+        if len(self.__sessions) == 0:
+            return None
+        return self.__sessions[v]
 
     def get_current(self) -> SessionVersion:
         return self.__sessions[-1]
@@ -108,8 +119,8 @@ class DebugSession:
 
 
     @property
-    def instr(self):
-        return self.get_current().instr
+    def pc(self):
+        return self.get_current().pc
 
     @property
     def globals(self):

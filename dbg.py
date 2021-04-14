@@ -22,11 +22,21 @@ def start_dbg(config: json):
 
     mod = WAModule.from_file(config['program'], out=config['out'])
     filtered = filter(lambda c: c.get('enable', True), config['devices'])
-    devices = map(load_device, filtered)
+    dbgs= []
+    for c in filtered:
+        d = load_device(c)
+        dbgs.append(Debugger(d, mod))
 
-    dbgs = map(lambda d: Debugger(d, mod), devices)
     _loc = next((d for d in dbgs if d.device.is_local), None)
     _rmt = next((d for d in dbgs if d.device.is_remote), None)
+    if _loc is not None and config.get('proxy', False):
+        if _rmt is None:
+            raise ValueError(f'configuration error: function proxy requires a remote device. Enable a remote device')
+        proxy_config = {}
+        proxy_config['proxy'] = config.get('proxy', [])
+        proxy_config['host'] = _rmt.device.host
+        proxy_config['port'] = _rmt.device.port
+        _loc.add_proxyconfig(proxy_config)
     return Test(_rmt, _loc)
 
 class Test():
@@ -43,11 +53,6 @@ class Test():
         return self.__loc
 
 
-def asksessions():
-    global ds_loc, ds_rmt, dbg
-    ds_loc = dbg.local_device.debug_session()
-    ds_rmt = dbg.remote_device.debug_session()
-
 def load_config(path: Union[str, None] = None)-> None:
     if path is None:
         cwd = './'
@@ -59,31 +64,15 @@ def load_config(path: Union[str, None] = None)-> None:
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(prefix_chars='-')
-    # parser.add_argument('-l', '--local')
-    # parser.add_argument('-r', '--remote')
-    # options = parser.parse_args()
-
     path = None
     config = load_config(path)
     if config is None:
         print("provide config file --config")
     else:
+       
         dbg = start_dbg(config)
         if dbg is not None:
             rmt = dbg.remote_device
             loc = dbg.local_device
-            loc.connect()
-            # loc.commit()
-            [i] = mod.codes.linenr(52)
-        #     f = mod.functions["fac"]
-        #     [else_ins]  = f.code[41]
-        #     fm = mod.functions["main"]
-        #     [call_fac] = fm.code[54]
-        #     loc.add_breakpoint(call_fac)
-    # all_enabled = options.local is None and options.remote is None
-    # with_local_dev = options.local is not None or all_enabled
-    # with_rmt_dev = options.remote is not None or all_enabled
-
-#  loc = dbg.local_device
-#  loc.receive_session_test()
+            if rmt is not None and rmt.device.uses_socket:
+                s = rmt.device.medium

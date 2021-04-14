@@ -18,12 +18,17 @@ class Device(WARDuino):
         self.__socket = None
         self.__serial = None
         self.__debugger = None
+        self.__host = None
+        self.__port = None
 
         if config.get('port', False):
             p = config['port']
             h = config.get('host', 'localhost')
             self.__socket = Sockets(p, h)
             self.medium = self.__socket
+            self.__host = self.medium.host
+            self.__port = self.medium.port
+
         elif config.get('serial', False):
             c = M5StickC.serialConfig(config['serial'])
             self.__serial = MCUSerial(c)
@@ -78,3 +83,11 @@ class Device(WARDuino):
     def debugger(self, _dbg) -> None:
         self.__debugger = _dbg
         self.set_debugger(_dbg)
+
+    @property
+    def host(self) -> str:
+        return self.__host
+
+    @property
+    def port(self) -> str:
+        return self.__port

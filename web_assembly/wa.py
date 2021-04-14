@@ -10,7 +10,7 @@ raw_dump = {'dump': {'pc': '0x3ffbecea', 'start': ['0x3ffbebf0'], 'opcode': '0x2
 raw_locals = {'local_dump': {'stack': [{'idx': 0, 'type': 'i32', 'value': 2}, {'idx': 1, 'type': 'i32', 'value': 95}, {'idx': 2, 'type': 'i32', 'value': 8}, {'idx': 3, 'type': 'i32', 'value': 9}, {'idx': 4, 'type': 'i32', 'value': 9}, {'idx': 5, 'type': 'i32', 'value': 2}]}, 'bp': '0x3ffbecea'}
 raw_complex = ('0xfa', raw_dump, raw_locals)
 
-DEBUG = True
+DEBUG = False
 def dbgprint(s):
     curframe = inspect.currentframe()
     calframe = inspect.getouterframes(curframe, 2)
@@ -38,7 +38,7 @@ def raw_to_stack(raw, aDevice, aModule):
     _funcs = [ to_fun(f, _offset) for f in _dump['functions']]
     _cs = stack.CallStack(_funcs, _bp)
     for idx, f in enumerate(_dump['callstack']):
-        _frame = to_frame(f, _offset, idx)
+        _frame = to_frame(f, _offset, idx, aModule)
         _cs.add_frame(_frame)
 
     _mem = _dump['memory']
@@ -76,10 +76,10 @@ def raw_to_stack(raw, aDevice, aModule):
     }
     return SessionVersion(**kwargs)
 
-def to_frame(cs_json, offset, idx):
+def to_frame(cs_json, offset, idx, _module):
     _type = stack.BlockType.from_int(cs_json['type'])
     _func_id = int(cs_json['fidx'], 16) if _type == stack.BlockType.FUNC else None
-    _module = 'some_mod'
+    # _module = 'some_mod'
     _name = 'some_name'
     _idx = idx
     _fp = cs_json['fp']

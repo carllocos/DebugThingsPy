@@ -4,7 +4,7 @@ import struct
 
 from utils import util
 
-DEBUG = True
+DEBUG = False
 
 KINDS = {'pcState': '01',
          'bpsState': '02',
@@ -30,6 +30,17 @@ def serialize_wasm(interrupt, wasm, max_bytes):
     size = int2bytes(len(wasm), 4)
     ser = interrupt + size.hex() +  wasm.hex()
     return [ser.upper()]
+
+def serialize_proxies(interrupt, host, port, func_ids, max_bytes):
+    _func_amount = int2bytes(len(func_ids), 4).hex()
+    _funcs = ''
+    for i in func_ids:
+        _funcs += int2bytes(i, 4).hex()
+    _lenhost = int2bytes(len(host), 1).hex()
+    _host =  host.encode().hex()
+    _port = int2bytes(port, 4).hex()
+    _sers = interrupt + _func_amount + _funcs + _port + _lenhost + _host
+    return [_sers.upper()]
 
 def serialize_session(dssession, recv_int, max_bytes):
     quanty_bytes_header = 1 + 4 #1 byte for interrupt (= 2 hexa chars) & 4 bytes for quantity bytes send (= 8 hexa chars)
