@@ -21,11 +21,3 @@ class M5StickC:
             return {'name': 'WARDuino'}
         else:
             return {}
-
-    @staticmethod
-    def serializer():
-        return warduino.Serializer()
-
-    @staticmethod
-    def sockSerializer():
-        return warduino_socket.Serializer()

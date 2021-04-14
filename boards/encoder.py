@@ -563,35 +563,3 @@ def isfunc_type(frame):
 
 def signedint2bytes(i, quantity, byteorder='big'):
     return (i).to_bytes(quantity, byteorder, signed = True)
-
-
-
-def test_serialize(max_bytes = 100):
-    from . import dummy
-    dummy_dump = dummy.dummy_dump['dump']
-    dummy_vals = dummy.dummy_vals['local_dump']
-    cleaned = clean_session(dummy_dump, dummy_vals, dummy_dump['start'][0])
-    return serialize_session(cleaned, '23', max_bytes)
-
-
-def test_serialize_memory(max_bytes = 100):
-    from . import dummy
-    dummy_dump = dummy.dummy_dump
-    dummy_vals = dummy.dummy_vals
-
-    chunks = []
-    cds = clean_session(dummy_dump, dummy_vals, dummy_dump['start'][0])
-    serialize_memory(cds['memory'], chunks, max_bytes)
-    assert len(chunks ) == 1, f'{len(chunks)} == 1'
-    membytes = dummy_dump['memory']['bytes']
-    bytes_ser = membytes.hex()
-    header = KINDS['memState'] + int2bytes(0, 4).hex()  + int2bytes(len(membytes), 4).hex()
-    ser =  header + bytes_ser
-    result = chunks[0]
-
-    assert result[0:1 * 2] == KINDS['memState'], 'header not good'
-    assert result[1 * 2: 5*2] == '0' * 8, 'begin offset'
-    assert result[ 5*2 : 9*2] == int2bytes(len(membytes) , 4).hex(), 'end offset'
-    #  assert len(result[13 * 2:]) == len(membytes.hex()[4*2:]), f'{len(result[13*2:])} == {len(membytes.hex()[4*2:])}'
-    assert len(chunks[0]) == len(ser), f'{len(chunks[0])} == {len(ser)}'
-    assert chunks[0] == ser, f'{chunks[0]} == {ser}'

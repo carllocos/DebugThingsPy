@@ -4,7 +4,7 @@ from pathlib import PurePath
 import logging
 
 from utils import wat2wasm
-from web_assembly import Functions, Tables, Globals, Memories, Types, Type, Codes
+from web_assembly import Functions, Tables, Globals, Memories, Types, Type, Codes, Expr
 from web_assembly import generate_dbginfo, load_module_details, DBGInfo
 
 
@@ -71,12 +71,27 @@ class WAModule:
     def build_out(self, _buildout) -> None:
         self.__buildout = _buildout
 
+    def linenr(self, nr: int):
+        return self.codes.linenr(nr)
+
+    def addr(self, addr: Union[str, int]) -> Union[Expr, None]:
+        return self.codes.addr(addr)
+
+    # def copy(self) -> WAModule:
+    #     _codes = self.codes.copy()
+    #     _types = self.types.copy()
+    #     _funcs = self.functions.copy()
+    #     m = WAModule(_types, _funcs, _codes)
+    #     m.filepath = self.filepath
+    #     m.no_extension_filename = self.no_extension_filename
+    #     m.build_out = self.build_out
+    #     return m
+
     def compile(self) -> bytes:
         fp = self.filepath
         fn = self.no_extension_filename
         out = self.build_out
         _bytes = wat2wasm(fp, fn, out)
-        print(f'#{len(_bytes)}')
         return _bytes
 
     @classmethod
@@ -95,6 +110,5 @@ class WAModule:
         types = Types.from_dbg(dbg_info)
         codes = Codes.from_dbg(dbg_info)
         funcs = Functions.from_dbg(dbg_info, codes, types)
-        dbgprint(f'The exports {funcs.exports}')
         return csl(types, funcs, codes)
 
