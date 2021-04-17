@@ -1,48 +1,26 @@
 from __future__ import annotations
 from typing import Union, List, Any
+from dataclasses import dataclass
+
 from web_assembly import SectionDetails, ModuleDetails, DBGInfo, Codes, Code,Type, Types
 
 #TODO distinguish between types declared and types defined when function defined. Make abstraction over type signature in Type
 
+@dataclass
+class Local:
+    idx: int
+    name: Union[str, None]
+
+@dataclass
 class Function:
-    def __init__(self,
-                idx: int,
-                signature: Type,
-                name: Union[str, None],
-                export_name: Union[str, None],
-                import_name: Union[str, None],
-                code: Union[None, Code] = None):
-        self.__idx = idx
-        self.__signature = signature
-        self.__name = name
-        self.__export = export_name
-        self.__import = import_name
-        self.__code = code
-
-    @property
-    def idx(self) -> int:
-        return self.__idx
-
-    @property
-    def name(self) -> Union[str, None]:
-        return self.__name
-    
-    @property
-    def signature(self) -> Type:
-        return self.__signature
-
-    @property
-    def export_name(self) -> Union[str, None]:
-        return self.__export 
-
-    @property
-    def import_name(self) -> Union[str, None]:
-        return self.__import
-
-    @property
-    def code(self) -> Union[Code, None]:
-        return self.__code
-
+    idx: int
+    signature: Type
+    name: Union[str, None]
+    export_name: Union[str, None]
+    import_name: Union[str, None]
+    locals: List[Local]
+    code: Union[None, Code] = None
+   
     def any_name(self) -> Union[str, None]:
         if self.name is not None:
             return self.name
@@ -104,6 +82,7 @@ class Functions:
         exports = mod['exports']
         imports = {}
         funcs = []
+        _locals= mod.get('locals', {})
         for f in mod['funcs']:
 
             #TODO take into acount lack of type declaration 
@@ -118,8 +97,11 @@ class Functions:
             export_name = exports.get(idx, None)
             import_name = imports.get(idx, None)
             code = codes[idx]
+            _fun_locals = []
+            for _loc in _locals.get(idx, []):
+                _fun_locals.append(Local(_loc['idx'], _loc['name']))
 
-            funcs.append(Function(idx, sign, name, export_name, import_name, code))
+            funcs.append(Function(idx, sign, name, export_name, import_name, _fun_locals, code))
 
         func_header = sec['function']
         return Functions(funcs, func_header['start'], func_header['end'])

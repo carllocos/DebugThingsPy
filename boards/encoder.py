@@ -79,63 +79,6 @@ def serialize_session(dssession, recv_int, max_bytes):
         assert len(c) % 2 == 0, f'Not an even chars chunk {c}'
     return [c.upper() for c in ds_chunks]
 
-def clean_session(dump, vals, new_offset):
-    offset = dump['start'][0]
-    pc = rebase_addr(dump['pc'], offset, new_offset)
-
-    if len(pc[2:]) > 2:
-        dbgprint(f"PC {pc} is composed of more than 2 hexachars thus cannot be converted to uint8_t")
-
-    bps = [rebase_addr(p, offset, new_offset) for p in dump['breakpoints']]
-    for b in bps:
-        if len(b[2:]) > 2:
-            dbgprint(f"breakpoint {b} is composed of more than 2 hexachars cannot be converted to uint8_t")
-
-    callstack = []
-    for frame in dump['callstack']:
-        _f = {
-            'type': frame['type'],
-            'fidx': frame['fidx'],
-            'sp': frame['sp'],
-            'fp': frame['fp'],
-        }
-
-        ra = frame['ra']
-        bk = frame['block_key']
-        _f['ra'] = "" if 'nil' in ra else rebase_addr(frame['ra'], offset, new_offset)
-        _f['block_key'] = "" if 'nil' in bk else rebase_addr(frame['block_key'], offset, new_offset)
-        callstack.append(_f)
-        # if _f['ra'] == '':
-        #     dbgprint(f'PRIOR WARNINGING : {frame["ra"]}')
-        #     dbgprint(f'WARNING ---- frame ra=`` prev ra={frame["ra"]}  rebase_addr={rebase_addr(frame["ra"], offset, new_offset)}')
-
-    br_table = dump['br_table']
-    tb = dump['table']
-    gs = [{'idx': 0, 'type': 'i32', 'value': 0}, {'idx': 1, 'type': 'i64', 'value': 64}, {'idx': 2, 'type': 'f32', 'value': 32.32},{'idx':2, 'type': 'f64', 'value': 64.6464}]
-    #  gs = dump['globals']
-    mem = dump['memory']
-    stack = []
-    for s in vals['stack']:
-        stack.append({
-                'type': s['type'],
-                'value': s['value']
-            })
-
-    cleaned = {'pc': pc,
-               'breakpoints': bps,
-               'callstack': callstack,
-               'globals': gs,
-               'table': tb,
-               'br_table': br_table,
-               'memory': mem,
-               'stack': stack }
-    return cleaned
-
-def rebase_addr(point, offset, new_offset):
-    addr = util.substract_hexs([point, offset])
-    raddr = hex(int(addr, 16) + int(new_offset, 16))
-    return raddr
-
 
 #PC serialization
 def serialize_pc(pc_addr, chunks, max_space):

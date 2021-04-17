@@ -1,8 +1,7 @@
 from __future__ import annotations
-from typing import Union
+from typing import Union, List
 
-from utils import valid_addr
-from web_assembly import wa as WA
+from utils import valid_addr, dbgprint, errprint
 from web_assembly import WAModule, Expr
 from things import ChangesHandler, DebugSession
 
@@ -11,12 +10,10 @@ class Debugger:
         super().__init__()
         self.__device = dev
         self.__breakpoints = []
-        self.__current_bp = False
         self.__advance_ctr = 0
-        self.__received_session = False
+
         self.__changeshandler = ChangesHandler(wamodule)
         self.__wamodule = wamodule
-        self.__debugsession = DebugSession()
         self.__proxy_config = None
         dev.debugger = self
 
@@ -33,30 +30,19 @@ class Debugger:
     def module(self) -> WAModule:
         return self.__wamodule
 
-    @property
-    def current_bp(self):
-        return self.__current_bp
-
     def give_offset(self):
         return self.device.vm.get_offset()
 
-    def reset(self):
-        self.remove_breakpoint(self.breakpoints()[0])
-        self.run()
-
-    def ack_add_bp(self, bp):
-        print(f'Debugger: ack add bp: {bp}')
-        self.__breakpoints.append(bp)
-
-    def ack_rmv_bp(self, bp):
-        print(f'Debugger: ack rmv bp: {bp}')
-        self.__breakpoints = [p for p in self.__breakpoints if p != bp]
-
-    def breakpoints(self):
+    @property
+    def breakpoints(self) -> List[Expr]:
         return self.__breakpoints
 
+    @breakpoints.setter
+    def breakpoints(self, nb: List[Expr]) -> None:
+        self.__breakpoints = nb
+
     def ack_current_bp(self, bp):
-        print(f'Debugger: ack current bp: {bp}')
+        dbgprint(f'Debugger: ack current bp: {bp}')
         self.__current_bp = bp
 
     def connect(self):
@@ -78,9 +64,12 @@ class Debugger:
         # print(f'received msgs {_msgs}')
         # self.__medium.send(_msgs, self.__device)
 
-    def run(self):
-        print('received run request')
-        self.device.run()
+    def run(self) -> None:
+        self.__update_session()
+        if self.device.run():
+            dbgprint(f'device {self.device.name} is running')
+        else:
+            dbgprint(f'device {self.device.name} failed to run')
 
     def pause(self, code_info):
         print("received paused request")
@@ -89,33 +78,31 @@ class Debugger:
         # self.__medium.send(_msgs, self.__device)
 
     def step(self, amount = 1):
+        self.__update_session()
+
         self.device.step(amount)
-        _raw = self.device.step_state
-        ds = WA.raw_to_stack(_raw, self.device, self.module)
-        self.__debugsession.add(ds)
-        if self.__changeshandler is not None:
-            self.__changeshandler.change(ds) 
-        return ds
+        _json = self.device.get_execution_state()
+        _sess = DebugSession.from_json(_json, self.module, self.device)
+        self.changes_handler.add(_sess)
+        return _sess
         
 
     def ask_for_offset(self):
         self.device.ask_for_offset()
 
     def add_breakpoint(self, expr: Expr) -> None:
-        self.device.add_breakpoint(expr.addr)
+        if self.device.add_breakpoint(expr.addr, self.__atbreakpoint):
+            dbgprint(f"breakpoint added at {expr}")
+            self.breakpoints.append(expr.copy())
+        else:
+            dbgprint(f'failed to add breakpoint {expr}')
 
-    def add_breakpoint_test(self, a:str, with_offset: bool = False) -> None:
-        self.device.add_breakpoint_test(a, with_offset)
-    # def add_breakpoint(self, addr, wait_for_at=True):
-    #     code_info  = BreakPoint(addr)
-    #     state = State(self.__device, code_info)
-    #     _msgs = self.__serializer.add_breakpoint(state, wait_for_at)
-    #     _reqs = self.__medium.send(_msgs, self.__device)
-    #     self.__medium.wait_for_answers(_reqs)
-
-
-    def remove_breakpoint(self, inst: Expr):
-        self.device.remove_breakpoint(inst.addr)
+    def remove_breakpoint(self, inst: Expr) -> None:
+        if self.device.remove_breakpoint(inst.addr):
+            dbgprint(f'breakpoint {inst} removed')
+            self.breakpoints = list(filter(lambda i: i.addr != inst.addr, self.breakpoints))
+        else:
+            dbgprint(f"could not remove breakpoint {inst}")
 
     def update_fun(self, code_info):
         pass
@@ -165,33 +152,51 @@ class Debugger:
         wasm = mod.compile()
         self.device.upload(wasm, cleaned_config)
 
-    def debug_session(self, code_info=False):
-        if not self.__received_session and not self.__current_bp:
-            print("no bp reached yet")
-            return
+    def debug_session(self):
+        _json = self.device.get_execution_state()
+        _sess = DebugSession.from_json(_json, self.module, self.device)
+        self.changes_handler.add(_sess)
+        return _sess
 
-        cbp = self.__current_bp
-        if self.__received_session:
-            cbp = self.device.specialbp()
-            self.device.force_cbp(cbp)
-
-        if not self.device.has_stack_for(cbp):
-            self.device.debug_session()
-
-        if self.__received_session:
-            self.__received_session = False
-            self.device.sync_with(cbp)
-
-        _raw = self.device.get_callstack(self.__current_bp)
-        ds = _raw and WA.raw_to_stack(_raw, self.device, self.module)
-        self.__debugsession.add(ds)
-        return self.__debugsession
-
-    def receive_session(self, debugsess):
-        self.__received_session = True
-        cleaned = debugsess.clean_session(self.device.offset)
-        self.device.receive_session(cleaned)
+    def receive_session(self, debugsess: DebugSession) -> None:
+        if debugsess.modified:
+            upd = debugsess.get_update()
+            if not upd.valid:
+                dbgprint("invalid change")
+                return 
+            self.changes_handler.add(upd)
+        _json = debugsess.to_json()
+        _json['breakpoints'] = [ hex(bp.addr) for bp in self.breakpoints]
+        self.device.receive_session(_json)
 
     def add_proxyconfig(self, proxy_config: dict) -> None:
         cleaned_config = self.validate_proxyconfig(self.module, proxy_config)
         self.__proxy_config = cleaned_config
+
+    #Callbacks
+    def ack_add_bp(self, bp):
+        dbgprint(f'Debugger: ack add bp: {bp}')
+        self.__breakpoints.append(bp)
+
+    def ack_rmv_bp(self, bp):
+        dbgprint(f'Debugger: ack rmv bp: {bp}')
+        self.__breakpoints = [p for p in self.__breakpoints if p != bp]
+
+    #private methods
+    def __atbreakpoint(self, bp: str) -> None:
+        dbgprint(f"reached breakpoint {bp}")
+        self.debug_session()
+
+    def __update_session(self, debugsess: Union[DebugSession, None] = None) -> None:
+        ds = self.changes_handler.session if debugsess is None else debugsess
+        if ds is None:
+            return
+
+        if ds.modified:
+            upd = debugsess.get_update()
+            if not upd.valid:
+                dbgprint("invalid change")
+                return 
+            debugsess.add(upd)
+            #TODO other update
+            self.receive_session(debugsess)

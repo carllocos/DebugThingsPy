@@ -4,11 +4,10 @@ import json
 from threading import Thread
 import math
 import select
-# import re
 import struct
 
 from interfaces import ASerial, AMessage, AMedium
-from utils import util
+from utils import util, dbgprint, errprint
 from . import encoder
 
 AnsProtocol = {
@@ -34,21 +33,6 @@ Interrupts = {
     'updateModule' : '24',
 }
 
-DEBUG = False
-
-def dbgprint(s):
-    curframe = inspect.currentframe()
-    calframe = inspect.getouterframes(curframe, 2)
-    cn = str(calframe[1][3])
-    if DEBUG:  # and cn in ONLY:
-        print((cn + ':').upper(), s)
-
-
-def errprint(s):
-    print(s)
-    sys.exit()
-
-
 proxy_config = None
 
 class WARDuino(ASerial):
@@ -57,7 +41,7 @@ class WARDuino(ASerial):
         self.__offset = None
         self.__dbg = None
         self.__eventThread = None
-        self.__current_bp = None
+        # self.__current_bp = None
         self.__dumps = []
         self.__locals = []
         self.__max_bytes = 100  # FIXME at 20 get issue due to pc_serialization
@@ -67,9 +51,6 @@ class WARDuino(ASerial):
         self.__redirectdbg = None
         self.__connected = False
         self.__eventlistener = None
-        #  self.__breakpoints = []
-        #  self.__temp = []
-        #  self.__bytes = []
 
     #properties
     @property
@@ -122,41 +103,37 @@ class WARDuino(ASerial):
     #API
     def connect(self) -> bool:
         dbgprint("connecting...")
-        offmsg = AMessage(Interrupts['offset'] + '\n', receive_offset)
         if not self.medium.connected:
-            self.medium.start_connection(self)
-        self.medium.send(offmsg)
+            self.connected = self.medium.start_connection(self)
+
+        self.offset = self.__ask_for_offset()
+        dbgprint(f"offset device {self.offset}")
         return self.connected
 
-
-    def ask_for_offset(self) -> bool:
-        offmsg = AMessage(Interrupts['offset'] + '\n', receive_offset)
-        self.medium.send(offmsg)
-
-    def run(self):
+    def run(self) -> bool:
         run_msg = AMessage(Interrupts['run'] + '\n', receive_run_ack)
-        self.medium.send(run_msg)
+        return self.medium.send(run_msg)
 
     def pause(self, state):
         raise NotImplementedError
 
     def step(self, amount = 1):
-        dbgprint('generating callstack_msgs')
         msgs = []
         for _ in range(amount):
             step_msg = AMessage(Interrupts['step'] + '\n', receive_stepack)
             msgs.append(step_msg)
-        msgs.append(AMessage(Interrupts['dump'] + '\n', receive_stepdump))
-        msgs.append(AMessage(Interrupts['locals'] + '\n', receive_steplocals))
+        # msgs.append(AMessage(Interrupts['dump'] + '\n', receive_dump))
+        # msgs.append(AMessage(Interrupts['locals'] + '\n', receive_locals))
         self.medium.send(msgs)
+        return self.get_execution_state()
 
-    def remove_breakpoint(self, addr: int) -> None:
+    def remove_breakpoint(self, addr: int) -> bool:
         (size_hex, addr_hex) = bp_addr_helper(self.offset, addr)
         content = Interrupts['rmvbp'] + size_hex[2:] + addr_hex[2:] + '\n'
         rmbp_msg = AMessage(content.upper(), receive_rmvbp)
-        self.medium.send(rmbp_msg)
+        return self.medium.send(rmbp_msg)
 
-    def add_breakpoint(self, addr: int) -> bool:
+    def add_breakpoint(self, addr: int, callback: callable) -> bool:
         dbgprint(f'addr {addr} offset {self.offset}')
         (size_hex, addr_hex) = bp_addr_helper(self.offset, addr)
         content = Interrupts['addbp'] + size_hex[2:] + addr_hex[2:] + '\n'
@@ -164,22 +141,9 @@ class WARDuino(ASerial):
 
         if self.uses_socket:
             if self.__eventlistener is None:
-                self.__eventlistener = Thread(target=receive_atbp, args=(self, self.medium))
+                self.__eventlistener = Thread(target=receive_atbp, args=(self, self.medium, callback))
                 self.__eventlistener.start()
-        self.medium.send(addbp_msg)
-
-    def add_breakpoint_test(self, addr: str, with_offset: bool) -> bool:
-        dbgprint(f'addr {addr}')
-        off = self.offset if with_offset else 0
-        (size_hex, addr_hex) = bp_addr_helper(off, addr)
-        content = Interrupts['addbp'] + size_hex[2:] + addr_hex[2:] + '\n'
-        addbp_msg = AMessage(content.upper(), receive_addbp)
-        if self.uses_socket:
-            if self.__eventlistener is None:
-                self.__eventlistener = Thread(target=receive_atbp, args=(self, self.medium))
-                self.__eventlistener.start()
-
-        self.medium.send(addbp_msg)
+        return self.medium.send(addbp_msg)
 
     def halt(self, state):
         raise NotImplementedError
@@ -234,11 +198,16 @@ class WARDuino(ASerial):
         for m in msgs:
             self.medium.send(m)
 
-    def debug_session(self):
-        dbgprint('generating callstack_msgs')
+    def get_execution_state(self):
         dump_msg = AMessage(Interrupts['dump'] + '\n', receive_dump)
         locs_msg = AMessage(Interrupts['locals'] + '\n', receive_locals)
-        self.medium.send([dump_msg, locs_msg])
+        [_dumpjson, _locjson ] = self.medium.send([dump_msg, locs_msg])
+        if self.offset != _dumpjson['start'][0]:
+            dbgprint('new offset')
+            self.offset = _dumpjson['start'][0]
+
+        return warduino_state_to_wa_state(_dumpjson, _locjson)
+
 
     # Helper methods
     def has_offset(self):
@@ -250,7 +219,6 @@ class WARDuino(ASerial):
 
     @offset.setter
     def offset(self, off):
-        dbgprint(f'local device new offset {off}')
         self.__offset = off
 
     def clear_offset(self):
@@ -258,9 +226,6 @@ class WARDuino(ASerial):
 
     def stopEventThread(self):
         self.__eventThread = None
-
-    def add_dump(self, dump):
-        self.__dumps.append({'dump': dump, 'bp': self.__current_bp})
 
     def pop_callstack(self, bp):
         d = None
@@ -288,23 +253,12 @@ class WARDuino(ASerial):
         self.__dumps = new_dumps
         return (d, s)
 
-    def add_local_dump(self, local_dump):
-        self.__locals.append(
-            {'local_dump': local_dump, 'bp': self.__current_bp})
 
     def add_stepdump(self, d):
         self.__stepdump = d
 
     def add_steplocals(self, l):
         self.__stemplocals = l
-
-    def current_bp(self, bp):
-        self.__current_bp = bp
-        no_off = util.substract_hexs([bp, self.__offset])
-        self.debugger.ack_current_bp(no_off)
-
-    def force_cbp(self, cbp):
-        self.__current_bp = cbp
 
     def has_stack_for(self, bp):
         if bp == 'specialbp':
@@ -313,44 +267,30 @@ class WARDuino(ASerial):
         with_off = util.sum_hexs([bp, self.__offset])
         return next((d for d in self.__dumps if d['bp'] == with_off), False) and True
 
-    def get_callstack(self, bp):
-        with_off = util.sum_hexs([bp, self.__offset])
-        _dump = next((d for d in self.__dumps if d['bp'] == with_off), False)
-        _locals = next(
-            (l for l in self.__locals if l['bp'] == with_off), False)
-        if not _dump and not _locals:
-            return False
-        return (bp, _dump, _locals)
-
     def specialbp(self):
         return 'specialbp'
 
-    def clean_session(self, dump, vals, new_offset):
-        dbgprint('cleaning session')
-        return encoder.clean_session(dump, vals, new_offset)
-
-    def receive_session(self, dssession):
+    def receive_session(self, session: dict) -> bool:
         recv_int = Interrupts['receivesession']
-        sers = encoder.serialize_session(dssession, recv_int, self.max_bytes)
+        warduino_state = wa_state_to_warduino_state(session, self.offset)
+        sers = encoder.serialize_session(warduino_state, recv_int, self.max_bytes)
         msgs = []
         l = len(sers)
         for idx, content in enumerate(sers):
             rpl = receive_done if (idx + 1) == l else receive_ack
             msgs.append(AMessage(content + '\n', rpl))
 
-        self.medium.send(msgs)
+        replies = self.medium.send(msgs)
+        return replies[-1]
 
-    def sync_with(self, dummybp):
-        (dump_obj, locs) = self.pop_callstack(dummybp)
-        _d = dump_obj['dump']
-        offset = _d['start'][0]
-        self.offset = offset
-        self.current_bp(_d['pc'])
-        self.add_dump(_d)
-        self.add_local_dump(locs['local_dump'])
+    #private
+    def __ask_for_offset(self) -> str:
+        offmsg = AMessage(Interrupts['offset'] + '\n', receive_offset)
+        off = self.medium.send(offmsg)
+        return off
 
 # receive socket content functions
-def receive_atbp(warduino, aMedium):
+def receive_atbp(warduino, aMedium, callback: callable) -> None:
     at_start = b'AT '
     at_end = b'!\n'
     timeout = float(0.2)
@@ -361,38 +301,34 @@ def receive_atbp(warduino, aMedium):
         _noise = aMedium.recv_bytes(at_start, event=True)
         bp_bytes = aMedium.recv_bytes(at_end, event=True)[:-len(at_end)]
         bp = bp_bytes.decode()
-        warduino.current_bp(bp)
+        dbgprint(f'decoded bp {bp}')
+        dbgprint(f'offset is {warduino.offset}')
+        bp = hex(int(bp , 16) - int(warduino.offset, 16))
+        callback(bp)
+        # warduino.current_bp(bp)
 
-def receive_offset(warduino, aMedium):
+def receive_offset(warduino, aMedium) -> str:
     end = b'"}"\n'
     _noise = aMedium.recv_bytes(b'"offset":"')
     byts = aMedium.recv_bytes(end)[:-len(end)]
-    dbgprint(f'bytes {byts}')
-    warduino.offset = byts.decode()
-    # parsed = json.loads(byts)
-    # warduino.offset = parsed['offset']
-    warduino.connected = True
+    return byts.decode()
 
 
 def receive_initstep_run(_, sock):
     sock.recv_bytes(AnsProtocol['run'].encode())
     return True
 
-
 def receive_run_ack(_, sock):
     sock.recv_bytes(AnsProtocol['run'].encode())
-    dbgprint("device running")
     return True
 
-def receive_stepack(warduino: WARDuino, medium: AMedium):
+def receive_stepack(warduino: WARDuino, medium: AMedium) -> None:
     medium.recv_bytes(AnsProtocol['step'].encode())
     medium.recv_bytes(b'STEP DONE!\n')
-    dbgprint("stepped!")
 
 def receive_stepdump(aSerializer, sock):
     dump_json = receive_dump_helper(sock)
     aSerializer.add_stepdump(dump_json)
-
 
 def receive_steplocals(aSerializer, sock):
     locals_json = receive_locals_helper(sock)
@@ -401,20 +337,12 @@ def receive_steplocals(aSerializer, sock):
 
 def receive_dump(aSerializer, sock):
     dump_json = receive_dump_helper(sock)
-    if not aSerializer.has_offset():
-        dbgprint("chaning only offset")
-        offset = dump_json['start'][0]
-        aSerializer.set_offset(offset)
-    else:
-        dbgprint("saving dump")
-        aSerializer.add_dump(dump_json)
+    return dump_json
 
 
 def receive_locals(aSerializer, sock):
-    parsed = receive_locals_helper(sock)
-    dbgprint(parsed)
-    aSerializer.add_local_dump(parsed)
-    return True
+    loc_json = receive_locals_helper(sock)
+    return loc_json
 
 
 def receive_locals_helper(sock):
@@ -424,40 +352,36 @@ def receive_locals_helper(sock):
     parsed = json.loads(byts)
     return parsed
 
-
-def receive_rmvbp(aSerializer, sock):
+def receive_rmvbp(warduino, aMedium) -> bool:
     dbgprint("receive rmvbp")
     bp_end = b'!\n'
-    _ = sock.recv_bytes(b'BP ')
-    bp_bytes = sock.recv_bytes(bp_end)[:-len(bp_end)]
+    _ = aMedium.recv_bytes(b'BP ')
+    bp_bytes = aMedium.recv_bytes(bp_end)[:-len(bp_end)]
     dbgprint(f"removed bp {bp_bytes.decode()}")
     return True
 
-
-def receive_addbp(aSerializer, sock):
+def receive_addbp(warduino, aMedium) -> bool:
     dbgprint("receive addbp")
     bp_end = b'!\n'
-    _ = sock.recv_bytes(b'BP ')
-    bp_bytes = sock.recv_bytes(bp_end)[:-len(bp_end)]
+    _ = aMedium.recv_bytes(b'BP ')
+    bp_bytes = aMedium.recv_bytes(bp_end)[:-len(bp_end)]
     dbgprint(f"added bp {bp_bytes.decode()}")
     return True
-
-
 
 def receive_commitdone(warduino, aSocket):
     aSocket.recv_bytes(until=b'restart done!\n')
     dbgprint("received commit done")
     warduino.ask_for_offset()
 
-def receive_ack(aSerializer, aSocket):
-    aSocket.recv_bytes(until=b'ack!\n')
+def receive_ack(warduino, aMedium) -> bool:
+    aMedium.recv_bytes(until=b'ack!\n')
     dbgprint("received ack")
     return True
 
-
-def receive_done(aSerializer, aSocket):
-    aSocket.recv_bytes(until=b'done!\n')
+def receive_done(warduino, aMedium) -> bool:
+    aMedium.recv_bytes(until=b'done!\n')
     dbgprint("received done")
+    return True
 
 def receive_uploaddone(warduino, aMedium):
     global proxy_config 
@@ -499,9 +423,6 @@ def receive_dump_helper(sock):
     br_tbl = parsed['br_table']
     br_tbl['size'] = int(br_tbl['size'], 16)
     br_tbl['labels'] = bytes2int(labels)
-
-    dbgprint(parsed)
-
     return parsed
 
 
@@ -520,48 +441,106 @@ def bp_addr_helper(offset, code_addr):
         _hex = '0x0' + _hex[2:]
     return (_hex, bp_addr)
 
-# def noisefree(strng):
-#     return list( filter(lambda s : s != '', strng.split('\n')) )
+def warduino_state_to_wa_state(dump_json: dict, loc_json: dict) -> dict:
+    offset = int(dump_json['start'][0], 16)
+    state = {}
+    state['pc'] = hex( int(dump_json['pc'], 16) - offset)
+    state['breakpoints'] = [  hex( int(b, 16) - offset) for b in dump_json['breakpoints']]
+    state['table'] = {
+        'max': dump_json['table']['max'],
+        'min': dump_json['table']['init'],
+        'elements': dump_json['table']['elements']
+    }
+    state['memory'] = {
+        'pages': dump_json['memory']['pages'],
+        'min': dump_json['memory']['init'],
+        'max': dump_json['memory']['max'],
+        'bytes': dump_json['memory']['bytes'],
+    }
+    state['br_table'] = dump_json['br_table']['labels']
+    dbgprint("TODO: globals")
+    state['globals'] = dump_json['globals']
+    state['stack'] =  [s for s in loc_json['stack']]
 
-# def process_unknown(byts, unknown):
-#     dbgprint(f'received chars unknown msg {unknown}')
+    _frame_types = {
+        0: 'fun',
+        1: 'init_exp',
+        2: 'block',
+        3: 'loop',
+        4: 'if'
+    }
 
-# def receive_raw_bytes(_bytes, merge = False):
-#     (_total_elems, _ ) = struct.unpack('<HH', _bytes[0:4])
-#     _bytes = _bytes[4:] #TODO maybe apply code below only if _total_elems > 0
-#     (_bytes_per_elemnt, _ ) = struct.unpack('<HH', _bytes[0:4])
-#     _bytes = _bytes[4:]
-#     elems = []
-#     if merge:
-#         elems = _bytes
-#     else:
-#         for i in range(_total_elems):
-#             off = i * _bytes_per_elemnt
-#             _b = _bytes[off : off + _bytes_per_elemnt]
-#             elems.append(_b)
-#     return elems
+    _cs = []
+    for frame in dump_json['callstack']:
+        cleaned_frame = {
+            'block_type': _frame_types[frame['type']],
+            'sp': frame['sp'],
+            'fp': frame['fp'],
+            'ret_addr': hex(int(frame['ra'], 16) - offset),
+        }
+        if cleaned_frame['block_type'] == 'fun':
+            cleaned_frame['fidx'] = int(frame['fidx'], 16)
+        else:
+            cleaned_frame['block_key'] = hex( int(frame['block_key'], 16) - offset)
+        _cs.append(cleaned_frame)
 
-# def bytes_2_int(b):
-#     (fix, _) = struct.unpack('<HH', b)
-#     return fix
+    state['callstack'] = _cs
+    return state
 
-    # def add_breakpoint(self, state, wait_for_at=True):
-    #     _code = state.code_info()
-    #     (size_hex, addr_hex) = bp_addr_helper(self.__offset, _code.hex_addr())
-    #     content = Interrupts['addbp'] + size_hex[2:] + addr_hex[2:] + '\n'
-    #     addbp_msg = AMessage(content.upper(), receive_addbp)
 
-    #     evt = self.__eventThread
-    #     if evt is None:
-    #         med = self.__dbg.get_med()
-    #         evt = threading.Thread(target=receive_atbp, args=(self, med))
-    #         self.__eventThread = evt
-    #         evt.start()
+def wa_state_to_warduino_state(_json: dict, offset: str) -> dict:
+    _offset = int(offset, 16)
+    rebase = lambda addr : hex( int(addr, 16) + _offset)
 
-    #     return [addbp_msg]
-    # def remove_breakpoint(self, state):
-    #     _code = state.code_info()
-    #     (size_hex, addr_hex) = bp_addr_helper(self.__offset, _code.hex_addr())
-    #     content = Interrupts['rmvbp'] + size_hex[2:] + addr_hex[2:] + '\n'
-    #     rmbp_msg = AMessage(content.upper(), receive_rmvbp)
-    #     return [rmbp_msg]
+    state = {
+        'pc' : rebase(_json['pc']),
+        'breakpoints': [rebase(bp) for bp in _json['breakpoints']],
+        'br_table': {
+            'size': len(_json['br_table']),
+            'labels': _json['br_table'],
+            },
+        'globals': _json['globals'],
+        'table': {
+            'init': _json['table'].get('min', 0),
+            'max': _json['table'].get('max', 0),
+            'elements' : _json['table']['elements']
+        },
+        'memory': {
+            'init': _json['memory'].get('min', 0),
+            'max': _json['memory'].get('max', 0),
+            'pages': _json['memory']['pages'],
+            'bytes': _json['memory']['bytes'],
+        },
+        'stack': _json['stack'],
+    }
+
+    _frame_types = {
+        'fun': 0,
+        'init_exp': 1,
+        'block': 2,
+        'loop': 3,
+        'if': 4
+    }
+
+    callstack = []
+    for frame in _json['callstack']:
+        _f = {
+            'idx' : frame['idx'],
+            'type': _frame_types[frame['block_type']],
+            'fidx': hex(frame.get('fidx', 0)),
+            'sp': frame['sp'],
+            'fp': frame['fp'],
+            'ra': frame.get('ret_addr', ''),
+            'block_key': frame.get('block_key', '')
+        }
+        if frame.get('ret_addr', False):
+            _f['ra'] = rebase(frame['ret_addr'])
+        if frame.get('block_key', False):
+            _f['block_key'] = rebase(frame['block_key'])
+        callstack.append(_f)
+
+    callstack.sort(key = lambda f: f['idx'], reverse= False)
+    dbgprint(f'frames {callstack}')
+    state['callstack'] = callstack
+
+    return state

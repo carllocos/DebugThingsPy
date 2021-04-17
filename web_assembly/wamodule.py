@@ -4,7 +4,7 @@ from pathlib import PurePath
 import logging
 
 from utils import wat2wasm
-from web_assembly import Functions, Tables, Globals, Memories, Types, Type, Codes, Expr
+from web_assembly import Functions, Types, Type, Codes, Expr
 from web_assembly import generate_dbginfo, load_module_details, DBGInfo
 
 
@@ -20,7 +20,7 @@ class WAModule:
         self.__types = types
         self.__funcs = funcs
         self.__codes = codes
-        self.__tables = []
+        self.__table = []
         self.__memories = []
         self.__globals = []
         self.__filepath = None

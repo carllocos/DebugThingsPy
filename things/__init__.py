@@ -1,10 +1,9 @@
-from .debug_session import DebugSession, SessionVersion
+from .debug_session import DebugSession
 from .changeshandler import ChangesHandler
 from .debug import Debugger
 
 
 __all__ = [
-    'SessionVersion',
     'DebugSession',
     'ChangesHandler',
     'Debugger'

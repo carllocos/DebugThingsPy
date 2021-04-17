@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Union, List
+from typing import Union, List, Any
 
 import os
 import socket
@@ -127,16 +127,22 @@ class Sockets(AMedium):
         raise NotImplementedError
 
 
-    def send(self, messages: Union[AMessage, List[AMessage]]):
-        if not isinstance(messages, list):
-            messages= [messages]
+    def send(self, msgs: Union[AMessage, List[AMessage]]) -> List[Any]:
+        messages = msgs
+        if not isinstance(msgs, list):
+            messages= [msgs]
 
+        replies = []
         for m in messages:
             dbgprint(f'message {m.content}')
             self.__socket.send(m.content.encode())
             if m.has_reply():
-                m.get_reply(self.serializer, self)
-        return messages
+                r = m.get_reply(self.serializer, self)
+                replies.append(r)
+        if isinstance(msgs, list):
+            return replies
+        else:
+            return replies[0]
 
 
 
@@ -196,22 +202,3 @@ def clean_host(h: str) -> str:
         return 'localhost'
     else:
         return cleaned
-
-
-
-    # def send_str(self, content, dev):
-    #     self.__fp.seek(0)
-    #     self.__fp.truncate()
-    #     self.__fp.write(content)
-    #     self.__fp.flush()
-    #     p = dev.process
-    #     os.kill(p.info.get('pid'), signal.SIGUSR1)
-
-    # def open_tmp_file(self, name='change'):
-    #     path = '/tmp/'
-    #     self.__fp = open(os.path.join(path, name),'w')
-    #     dbgprint(f'File {name} open at {path}')
-
-    #helper methods
-    # def wait_for_answers(self, messages):
-    #     return 'done'

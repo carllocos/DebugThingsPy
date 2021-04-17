@@ -1,12 +1,16 @@
 from .util import load_sections_info, load_module_details, SectionDetails, ModuleDetails, DBGInfo, generate_dbginfo
-from .memory import Memories
+from ._const import ConstValue
 from .code import Codes, Code, Expr
-from .table import Tables
-from .globals import Globals
 from .types import Type, Types
 from .func import Functions #, Function
 from .wamodule import WAModule
-# from .wat2wasm import wat2wasm
+
+from ._memory import Memory, Memories
+from ._globals import Globals
+from ._table import Table, Tables
+from ._stack import Stack, StackValue
+from ._callstack import CallStack, Frame
+
 
 _all__ = [
     'load_module_details',
@@ -16,15 +20,23 @@ _all__ = [
     'generate_dbginfo',
     'DBGInfo',
     'WAModule',
+    'Memory',
     'Memories',
+    'CallStack',
+    'Frame',
+    'BlockType',
+    'make_fun',
     'Code',
     'Codes',
     # 'Function',
     'Functions',
+    'Table',
     'Tables',
     'Globals',
     'Type',
     'Types',
     'Expr',
-    # 'wat2wasm'
+    'ConstValue',
+    'StackValue',
+    'Stack'
 ]

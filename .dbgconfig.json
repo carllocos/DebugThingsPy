@@ -1,7 +1,7 @@
 {
 	"program":"examples/fac.wast",
 	"out":"out/",
-	"proxy": ["fac"],
+	"proxy": [],
 	"devices": [
 		{
 			"name": "remote fac",

@@ -7,23 +7,12 @@ import re
 import logging
 import shutil
 
+from utils import dbgprint, errprint
 from utils import wasm_sourcemaps
-
-logging.basicConfig(level=logging.DEBUG)
 
 SectionDetails = Dict[str, Dict[str, Union[str, int]]]
 ModuleDetails = Dict[str, str]
 DBGInfo = Tuple[SectionDetails, ModuleDetails]
-
-DEBUG = False
-def dbgprint(s):
-    global DEBUG
-    if DEBUG:
-        logging.debug(s)
-
-
-def raise_error(m):
-    raise ValueError(m)
 
 #TODO 
 # 1. use wasmtime to generate usefull compact information about header, types and funbctions
@@ -39,7 +28,7 @@ def generate_dbginfo(path: Union[PurePath, str], out: Union[PurePath, str, None]
         raise ValueError('`wat` or `wast` file expected')
 
     fname = filepath.name.split(".")[0]# remove extension 
-    dbgprint(f'GOT PATH ext {ext} name {filepath.name} -> {path}')
+    # dbgprint(f'GOT PATH ext {ext} name {filepath.name} -> {path}')
 
     outDirectory = out
     if out is None:
@@ -54,11 +43,11 @@ def generate_dbginfo(path: Union[PurePath, str], out: Union[PurePath, str, None]
     srcmap_path = outDirectory.joinpath(fname +  '.dbg.verbose.txt')
 
 
-    dbgprint(f"""file name {fname}
-                headers_path {headers_path}
-                details_path {details_path}
-                source maps path {srcmap_path}
-              """)
+    # dbgprint(f"""file name {fname}
+    #             headers_path {headers_path}
+    #             details_path {details_path}
+    #             source maps path {srcmap_path}
+    #         #   """)
 
 
     wasm_sourcemaps(filepath, outDirectory)
@@ -131,10 +120,14 @@ def load_module_details(file: Union[PurePath, str]) -> ModuleDetails:
                 continue
 
             kind = next((k for k in list(parsers) if k in line), None)
-            if kind == 'Custom':
-                break
-
+            
             assert kind is not None, f'issue parsing line {line}'
+
+            if kind == 'Custom':
+                lines = details.readlines()
+                p = parsers[kind]
+                p(mod, lines)
+                break
 
             quantity_str = ''.join(re.findall(r'\d+', line))
             quantity = int(quantity_str)
@@ -154,7 +147,6 @@ def load_module_details(file: Union[PurePath, str]) -> ModuleDetails:
     return mod
 
 def read_sourcemap(file: Union[PurePath, str]) -> Any:
-    dbgprint('reading sourcemaps')
     sourcemaps = {}
     with open(file, 'r') as sources:
         line = sources.readline()
@@ -162,7 +154,6 @@ def read_sourcemap(file: Union[PurePath, str]) -> Any:
         while section not in line:
             line = sources.readline()
 
-        dbgprint('starting first function')
         function = 'function body '
         function_end = 'FIXUP func body size'
 
@@ -178,7 +169,6 @@ def read_sourcemap(file: Union[PurePath, str]) -> Any:
             func_idx = int(func_parts[-1])
             srcline_prefix = '@'
             src = []
-            dbgprint(f'func_idx {func_idx}')
             
             line = sources.readline()
             while not (function_end in line):
@@ -189,24 +179,19 @@ def read_sourcemap(file: Union[PurePath, str]) -> Any:
 
                 instr_line = sources.readline()
                 line_parts = line[4:-3].split(',')
-                dbgprint(f'LINE PARTS {line_parts}')
                 instr = {}
                 for l in line_parts:
                    k, v =  l.split(':') 
                    instr[ k.strip() ] = int(v)
                 
-                dbgprint(f'INSTRUCTION LINE {instr_line}')
                 addr_part, inst_part = instr_line.split(';')
                 instr_addr = addr_part.split(':')[0].split(" ")[-1]
 
-                # instr_addr = re.findall(r'\d+', addr_part)[0] 
-                dbgprint(f'instr_addr {instr_addr}')
                 instr['addr'] =  int('0x' + instr_addr, 16)
                 instr['type'] = inst_part.strip()
                 src.append(instr) 
                 line = sources.readline()
 
-            dbgprint(f'source maps function {func_idx} src = {src}')
             sourcemaps[func_idx] = src
             line = sources.readline()
 
@@ -231,7 +216,6 @@ def read_types(container, lines) -> None:
     for type_line in lines:
         #line of the form '- type[2] (i32, f64)  -> i32'
         words = type_line.split()
-        dbgprint(f'words {words}')
 
         assert len(words) >= 5, f'incorrect quantity found: expected 5 got {len(words)}'
         
@@ -253,7 +237,6 @@ def read_types(container, lines) -> None:
             'idx': type_idx
         })
 
-    dbgprint(f'All types {types}')
     container['types'] = types
 
 def read_functions(container, lines):
@@ -264,7 +247,6 @@ def read_functions(container, lines):
     funcs = []
     for fun_line in lines:
         words = fun_line.split()
-        dbgprint(f'words {words}')
 
         #expected line e.g '- func[0] sig=0 <funcName>'
         assert len(words) >= 4, f'func definition incorrect format. Got {words}'
@@ -280,7 +262,6 @@ def read_functions(container, lines):
         func_name = func_name[1:-1] 
         funcs.append({'name': func_name, 'idx': func_idx, 'signature': sign_idx})
 
-    dbgprint(f'All funcs {funcs}')
     container['funcs'] = funcs
 
 
@@ -304,10 +285,6 @@ def read_import(container, lines):
     pass
 
 def read_code(container, lines):
-# Code[3]:
-#  - func[0] size=2 <dummy>
-#  - func[1] size=28 <fac>
-#  - func[2] size=21 <fac5 
     sizes = {}
     for line in lines:
         words = line.split()
@@ -322,14 +299,30 @@ def read_code(container, lines):
     container['code_sizes'] = sizes
 
 def read_custom(container, lines):
-# Custom:
-#  - name: "name"
-#  - func[0] <dummy>
-#  - func[1] <fac>
-#  - func[2] <fac5>
-#  - func[2] local[0] <int_32>
-    pass
+    _locals = {}
+    for l in lines:
+        if not 'local' in l:
+            continue
+        _, fun_part, loc_part, name_part = l.split()
+        fun_part = fun_part.split('[')[1]
+        fun_part = fun_part[:-1]
+        func_idx = int(fun_part)
 
+        loc_part = loc_part.split('[')[1]
+        loc_part = loc_part[:-1]
+        local_idx = int(loc_part)
+
+        #remove '<' and '>'
+        local_name = name_part[1:-1]
+
+        lst = _locals.get(func_idx, [])
+        lst.append({
+            'idx': local_idx,
+            'name': local_name
+        })
+        _locals[func_idx] = lst
+
+    container['locals'] = _locals
 
 def read_tbl(container, lines):
 # Table[1]:

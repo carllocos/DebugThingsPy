@@ -1,13 +1,10 @@
 from __future__ import annotations
-from typing import Union
+from typing import Union, Any
 
 from interfaces import ASerial
 from boards import M5StickC
 from communication import Sockets, MCUSerial
 from boards import WARDuino
-from things import Debugger
-# from boards import WARDuinoSerial  #replace
-# from boards import WARDuinoSocket
 
 class Device(WARDuino):
 
@@ -76,7 +73,7 @@ class Device(WARDuino):
         return self.__socket is not None
 
     @property
-    def debugger(self) -> Union[Debugger, None]:
+    def debugger(self) -> Any:
         return self.__debugger
 
     @debugger.setter

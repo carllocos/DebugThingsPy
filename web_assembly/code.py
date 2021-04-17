@@ -44,10 +44,16 @@ class Expr:
         if isinstance(c, Code):
             self.__code = c
 
+    def copy(self) -> Expr:
+        return Expr(self.linenr, self.colstart, self.colend, self.addr, self.exp_type)
+
     def shift(self):
         e =  Expr(self.linenr, self.colstart, self.colend, self.addr + 1, self.exp_type)
         e.code = self.code
         return e
+
+    def __repr__(self) -> str:
+        return f'{str(self)}'
 
     def __str__(self) -> str:
         return f'<line {self.linenr} ({hex(self.addr)}): {self.exp_type}>'

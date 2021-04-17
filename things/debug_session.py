@@ -1,66 +1,70 @@
 from __future__ import annotations
-from typing import Union
+from typing import Union, List
 
-import struct as struct #https://www.delftstack.com/howto/python/how-to-convert-bytes-to-integers/
+from utils import dbgprint, errprint
+from boards import Device
+from web_assembly import WAModule, CallStack, Stack, Table, Memory, Globals, Expr
 
-class SessionVersion(object):
+class DebugSession(object):
 
     def __init__(self, **kwargs): 
         self.__module = kwargs['module']
         self.__pc = kwargs['pc']
         self.__cs = kwargs['callstack']
-        self.__sv = kwargs['stack_values']
-        self.__linmem = kwargs['lin_mem']
+        self.__sv = kwargs['stack']
+        self.__memory = kwargs['memory']
         self.__table = kwargs['table']
         self.__br_table = kwargs['br_table']
         self.__globals = kwargs['globals']
-        self.__opcode = False  #kwargs['opcode']
-        self.__original_dump = kwargs['org_dump']
-        self.__original_vals = kwargs['org_vals']
         self.__device = kwargs['device']
         self.__instr = None
+        self.__valid = None
+        self.__version = None
 
     @property
-    def device(self):
+    def version(self) -> Union[int, None]:
+        return self.__version
+
+    @version.setter
+    def version(self, v: int) -> None:
+        if self.__version is not None:
+            raise ValueError('cannot change the version of an already registered session')
+        self.__version = v
+
+    @property
+    def module(self) -> WAModule:
+        return self.__module
+
+    @property
+    def device(self) -> Device:
         return self.__device
 
     @property
-    def callstack(self):
+    def callstack(self) -> CallStack:
         return self.__cs
 
     @property
-    def stack_values(self):
+    def stack(self) -> Stack:
         return self.__sv
 
     @property
-    def lin_mem(self):
-        return self.__linmem
+    def memory(self) -> Memory:
+        return self.__memory
 
     @property
-    def table(self):
+    def table(self) -> Table:
         return self.__table
 
     @property
-    def br_table(self):
+    def br_table(self) -> List[int]:
         return self.__br_table
 
     @property
-    def opcode(self):
-        return self.__opcode
-
-    @property
-    def globals(self):
+    def globals(self) -> Globals:
         return self.__globals
 
     @property
-    def org_dump(self):
-        return self.__original_dump
-    @property
-    def org_vals(self):
-        return self.__original_vals
-
-    @property
-    def pc(self):
+    def pc(self) -> Union[Expr, None]:
         if self.__instr is None:
             m  = self.__module
             i = m.codes.addr(self.__pc)
@@ -69,71 +73,107 @@ class SessionVersion(object):
             self.__instr = i
         return self.__instr
 
-    def clean_session(self, new_offset):
-        aSerializer = self.device
-        return aSerializer.clean_session(self.org_dump, self.org_vals, new_offset)
+    @property
+    def modified(self) -> bool:
+        if self.callstack.modified:
+            return True
+        elif self.table.modified:
+            return True
+        elif self.memory.modified:
+            return True
+        elif self.table.modified:
+            return True
+        elif self.globals.modified:
+            return True
+        else:
+            dbgprint(f'current version did not change')
+            return False
 
-class DebugSession:
+    def validate(self) -> None:
+        dbgprint("TODO validate the change")
 
-    def __init__(self):
-        self.__sessions = []
+    @property
+    def valid(self) -> bool:
+        if self.__valid is None:
+            #TODO ad try catch
+            self.validate()
+            self.__valid = True
+        return self.__valid
 
-    def version(self, v: int)-> Union[SessionVersion, None]:
-        if len(self.__sessions) == 0:
+    def get_update(self) -> Union[None, DebugSession]:
+        if not self.modified:
             return None
-        return self.__sessions[v]
 
-    def get_current(self) -> SessionVersion:
-        return self.__sessions[-1]
+        new_state = {
+            'callstack': self.callstack,
+            'stack':self.stack,
+            'lin_mem':self.memory,
+            'table': self.table,
+            'globals': self.globals,
+        }
 
-    def add(self, s: SessionVersion) -> None:
-        self.__sessions.append(s)
+        if None not in new_state.values():
+            return None
 
-    @property
-    def device(self):
-        return self.get_current().device
+        for key, obj in enumerate(new_state):
+            upd = obj.get_update()
+            if upd is None:
+                new_state[key] = obj.copy()
+            else:
+                new_state[key] = upd
 
-    @property
-    def callstack(self):
-        return self.get_current().callstack
+        new_state['pc'] = self.pc
+        new_state['module'] = self.module
+        new_state['device'] = self.device
+        new_state['br_table'] = self.br_table
 
-    @property
-    def stack_values(self):
-        return self.get_current().stack_values
+        return DebugSession(**new_state)
 
-    @property
-    def lin_mem(self):
-        return self.get_current().lin_mem
+    def to_json(self) -> dict:
+        pc = hex(self.pc.addr)
+        stack = self.stack.to_json()['stack']
+        callstack = self.callstack.to_json()['callstack']
 
-    @property
-    def table(self):
-        return self.get_current().table
+        memory = self.memory.to_json()
+        tbl = self.table.to_json()
+        _globals = self.globals.to_json()['globals']
+        br_table = self.br_table
 
-    @property
-    def br_table(self):
-        return self.get_current().br_table
+        _json = {
+            'pc': pc,
+            'callstack': callstack,
+            'stack': stack,
+            'memory': memory,
+            'table': tbl,
+            'br_table': br_table,
+            'globals': _globals,
+        }
 
-    @property
-    def opcode(self):
-        return self.get_current().opcode
+        return _json
 
+    @staticmethod
+    def from_json(_json: dict, module: WAModule, device: Device) -> DebugSession:
+        pc = _json['pc']
+        stack = Stack.from_json_list(_json['stack'])
 
-    @property
-    def pc(self):
-        return self.get_current().pc
+        callstack = CallStack.from_json(_json['callstack'])
+        callstack.stack = stack
+        callstack.module = module
 
-    @property
-    def globals(self):
-        return self.get_current().globals
+        memory = Memory.from_json(_json['memory'])
+        tbl = Table.from_json(_json['table'])
+        _globals = Globals.from_json_list(_json['globals'])
+        br_table = _json['br_table']
 
-    @property
-    def org_dump(self):
-        return self.get_current().org_dump
-
-    @property
-    def org_vals(self):
-        return self.get_current().org_vals
-
-    def clean_session(self, new_offset):
-        aSerializer = self.device
-        return aSerializer.clean_session(self.org_dump, self.org_vals, new_offset)
+        kwargs = {
+            'module': module,
+            'pc': pc,
+            'callstack': callstack,
+            'stack': stack,
+            'memory': memory,
+            'table': tbl,
+            'br_table': br_table,
+            'globals': _globals,
+            'device': device
+        }
+        return DebugSession(**kwargs)
