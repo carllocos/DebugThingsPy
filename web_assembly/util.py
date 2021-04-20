@@ -104,7 +104,8 @@ def load_module_details(file: Union[PurePath, str]) -> ModuleDetails:
         'Custom': read_custom,
         'Table': read_tbl,
         'Memory': read_memory,
-        'Elem': read_elem
+        'Elem': read_elem,
+        'Global': read_globals,
     }
     mod = {}
     with open(file, 'r') as details:
@@ -168,22 +169,26 @@ def read_sourcemap(file: Union[PurePath, str]) -> Any:
             func_parts = line.split()
             func_idx = int(func_parts[-1])
             srcline_prefix = '@'
+            end_inst = '; end'
+            else_inst = '; else'
             src = []
             
             line = sources.readline()
             while not (function_end in line):
-                while not (srcline_prefix in line) and not (function_end in line):
+                while not (srcline_prefix in line) and not (function_end in line) and not (end_inst in line) and not (else_inst in line):
                     line = sources.readline()
                 if function_end in line:
                     break
 
-                instr_line = sources.readline()
-                line_parts = line[4:-3].split(',')
                 instr = {}
-                for l in line_parts:
-                   k, v =  l.split(':') 
-                   instr[ k.strip() ] = int(v)
-                
+                instr_line = line
+                if srcline_prefix in line:
+                    line_parts = line[4:-3].split(',')
+                    for l in line_parts:
+                        k, v =  l.split(':') 
+                        instr[ k.strip() ] = int(v)
+                    instr_line = sources.readline()
+                    
                 addr_part, inst_part = instr_line.split(';')
                 instr_addr = addr_part.split(':')[0].split(" ")[-1]
 
@@ -278,7 +283,6 @@ def read_export(container , lines):
         export_name = export_name[1:-1]
         exps[fun_idx] =  export_name
 
-    dbgprint(f'All exports {exps}')
     container['exports'] = exps
 
 def read_import(container, lines):
@@ -295,7 +299,6 @@ def read_code(container, lines):
         size = int(size_str)
         sizes[fun_idx] = size
 
-    dbgprint(f'All code sizes {sizes}')
     container['code_sizes'] = sizes
 
 def read_custom(container, lines):
@@ -323,6 +326,33 @@ def read_custom(container, lines):
         _locals[func_idx] = lst
 
     container['locals'] = _locals
+
+
+def read_globals(container, lines):
+    _globals = []
+    for line in lines:
+        words = line.split()
+
+        id_part = words[1]
+        type_part = words[2]
+        mutable_part = words[3] 
+
+        global_id = id_part.split('[')[1]
+        global_id = int(global_id[:-1])
+
+        global_type = type_part
+
+        mutable = int(mutable_part.split("=")[1])
+        mutable = mutable == 1
+
+        _global = {
+            'id': global_id,
+            'type' : global_type,
+            'mutable': mutable
+        }
+        _globals.append(_global)
+
+    container['globals'] = _globals
 
 def read_tbl(container, lines):
 # Table[1]:
