@@ -22,7 +22,3 @@ class SerialConfig:
         self.timeout = kwargs['timeout']
         self.write_timeout = kwargs['write_timeout']
         self.fallback = kwargs['fallback']
-    # @staticmethod
-    # def from_port_info(port_info):
-    #     return SerialConfig(port_info)
-
