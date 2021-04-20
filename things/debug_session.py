@@ -75,7 +75,9 @@ class DebugSession(object):
 
     @property
     def modified(self) -> bool:
-        if self.callstack.modified:
+        if self.stack.modified:
+            return True
+        elif self.callstack.modified:
             return True
         elif self.table.modified:
             return True
@@ -86,7 +88,6 @@ class DebugSession(object):
         elif self.globals.modified:
             return True
         else:
-            dbgprint(f'current version did not change')
             return False
 
     def validate(self) -> None:
@@ -107,16 +108,14 @@ class DebugSession(object):
         new_state = {
             'callstack': self.callstack,
             'stack':self.stack,
-            'lin_mem':self.memory,
+            'memory':self.memory,
             'table': self.table,
             'globals': self.globals,
         }
 
-        if None not in new_state.values():
-            return None
-
-        for key, obj in enumerate(new_state):
-            upd = obj.get_update()
+        for key in new_state.keys():
+            obj = new_state[key]
+            upd = obj.get_update(self.module)
             if upd is None:
                 new_state[key] = obj.copy()
             else:

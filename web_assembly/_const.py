@@ -25,7 +25,9 @@ class ConstValue:
 
     @value.setter
     def value(self, v: ValType) -> None:
-        self._set_value(v)
+        r = self._set_value(v)
+        if r is not None:
+            self.__val = r
 
-    def _set_value(self, v: ValType) -> None:
+    def _set_value(self, v: ValType) -> Any:
         raise ValueError(f'changing value is unauthorized')

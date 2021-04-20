@@ -33,8 +33,12 @@ class Type:
         _r = [r for r in self.results]
         _n = self.name
         return Type(self.idx, _p,_r, _n)
+
     def __str__(self):
         return f'{str(self.parameters)} -> {str(self.results)}'
+
+    def __repr__(self):
+        return str(self)
 
 class Types:
     def __init__(self, types: List[Type], start: int, end: int):

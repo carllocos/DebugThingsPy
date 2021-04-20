@@ -10,13 +10,15 @@ class Debugger:
         super().__init__()
         self.__device = dev
         self.__breakpoints = []
-        self.__advance_ctr = 0
-
         self.__changeshandler = ChangesHandler(wamodule)
         self.__wamodule = wamodule
         self.__proxy_config = None
         dev.debugger = self
 
+
+    @property
+    def session(self) -> Union[None, DebugSession]:
+        return self.changes_handler.session
 
     @property
     def changes_handler(self) -> ChangesHandler:
@@ -30,9 +32,6 @@ class Debugger:
     def module(self) -> WAModule:
         return self.__wamodule
 
-    def give_offset(self):
-        return self.device.vm.get_offset()
-
     @property
     def breakpoints(self) -> List[Expr]:
         return self.__breakpoints
@@ -41,16 +40,12 @@ class Debugger:
     def breakpoints(self, nb: List[Expr]) -> None:
         self.__breakpoints = nb
 
-    def ack_current_bp(self, bp):
-        dbgprint(f'Debugger: ack current bp: {bp}')
-        self.__current_bp = bp
-
     def connect(self):
         c = self.device.connect()
         if not c:
-            print(f"connection failed to {self.device.name}")
+            dbgprint(f"connection failed to {self.device.name}")
         else:
-            print(f'connected to {self.device.name}') 
+            dbgprint(f'connected to {self.device.name}') 
         pc = self.__proxy_config
 
         if pc is not None and len(pc.get('proxy', [])) > 0:
@@ -77,7 +72,7 @@ class Debugger:
         # _msgs = self.__serializer.run(state)
         # self.__medium.send(_msgs, self.__device)
 
-    def step(self, amount = 1):
+    def step(self, amount = 1) -> DebugSession:
         self.__update_session()
 
         self.device.step(amount)
@@ -85,10 +80,32 @@ class Debugger:
         _sess = DebugSession.from_json(_json, self.module, self.device)
         self.changes_handler.add(_sess)
         return _sess
-        
 
-    def ask_for_offset(self):
-        self.device.ask_for_offset()
+    def step_over(self, expr: Union[Expr,DebugSession, None] = None) -> DebugSession:
+        if expr is None:
+            expr = self.changes_handler.session.pc
+        elif isinstance(expr, DebugSession):
+            expr = expr.pc
+
+        if expr.exp_type not in ['call', 'loop', 'block', 'if', 'else']:
+            dbgprint("doing regular step")
+            return self.step()
+
+        end = None
+        if expr.exp_type == 'call':
+            end = expr.code.next_instr(expr)
+        else:
+            end = expr.code.end_expr(expr)
+
+        dbgprint(f"end instruction of {expr} is {end}")
+        if not self.device.step_until(end.addr):
+            dbgprint(f'could not stepover {expr}')
+
+        dbgprint(f'stepped until {end}')
+        _json = self.device.get_execution_state()
+        _sess = DebugSession.from_json(_json, self.module, self.device)
+        self.changes_handler.add(_sess)
+        return _sess
 
     def add_breakpoint(self, expr: Expr) -> None:
         if self.device.add_breakpoint(expr.addr, self.__atbreakpoint):
@@ -165,6 +182,8 @@ class Debugger:
                 dbgprint("invalid change")
                 return 
             self.changes_handler.add(upd)
+            debugsess = upd
+
         _json = debugsess.to_json()
         _json['breakpoints'] = [ hex(bp.addr) for bp in self.breakpoints]
         self.device.receive_session(_json)
@@ -172,15 +191,6 @@ class Debugger:
     def add_proxyconfig(self, proxy_config: dict) -> None:
         cleaned_config = self.validate_proxyconfig(self.module, proxy_config)
         self.__proxy_config = cleaned_config
-
-    #Callbacks
-    def ack_add_bp(self, bp):
-        dbgprint(f'Debugger: ack add bp: {bp}')
-        self.__breakpoints.append(bp)
-
-    def ack_rmv_bp(self, bp):
-        dbgprint(f'Debugger: ack rmv bp: {bp}')
-        self.__breakpoints = [p for p in self.__breakpoints if p != bp]
 
     #private methods
     def __atbreakpoint(self, bp: str) -> None:
@@ -193,10 +203,10 @@ class Debugger:
             return
 
         if ds.modified:
-            upd = debugsess.get_update()
+            upd = ds.get_update()
             if not upd.valid:
                 dbgprint("invalid change")
                 return 
-            debugsess.add(upd)
+            self.changes_handler.add(upd)
             #TODO other update
-            self.receive_session(debugsess)
+            self.receive_session(upd)

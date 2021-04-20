@@ -28,7 +28,7 @@ class Memory:
     def modified(self)-> bool:
         return False
 
-    def get_update(self) -> Union[None, Memory]:
+    def get_update(self, module: Any) -> Union[None, Memory]:
         return None
 
     def __repr__(self):
@@ -43,6 +43,10 @@ class Memory:
         if self.max is not None:
             _json['max'] = self.max
         return _json
+
+    def copy(self) -> Memory:
+        _bytes = self.bytes[:]
+        return Memory(self.min, self.max, self.pages, _bytes)
 
     @staticmethod
     def from_json(_json: dict) -> Memory:

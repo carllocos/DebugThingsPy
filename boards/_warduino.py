@@ -30,6 +30,7 @@ Interrupts = {
     'rmvbp': '07',
     'run': '01',
     'step': '04',
+    'until': '05',
     'updateModule' : '24',
 }
 
@@ -44,7 +45,7 @@ class WARDuino(ASerial):
         # self.__current_bp = None
         self.__dumps = []
         self.__locals = []
-        self.__max_bytes = 100  # FIXME at 20 get issue due to pc_serialization
+        self.__max_bytes = 1024  # FIXME at 20 get issue due to pc_serialization
         self.__stepdump = None
         self.__stemplocals = None
         self.__medium = None
@@ -81,7 +82,6 @@ class WARDuino(ASerial):
     @property
     def step_state(self):
         d = self.__stepdump
-        dbgprint(f"The dump {d}")
         off = d['start'][0]
         pc  = util.substract_hexs([d['pc'], off  ])
         return (pc, {'dump': d}, {'local_dump': self.__stemplocals})
@@ -120,10 +120,8 @@ class WARDuino(ASerial):
     def step(self, amount = 1):
         msgs = []
         for _ in range(amount):
-            step_msg = AMessage(Interrupts['step'] + '\n', receive_stepack)
+            step_msg = AMessage(Interrupts['step'] + '\n', receive_step_ack)
             msgs.append(step_msg)
-        # msgs.append(AMessage(Interrupts['dump'] + '\n', receive_dump))
-        # msgs.append(AMessage(Interrupts['locals'] + '\n', receive_locals))
         self.medium.send(msgs)
         return self.get_execution_state()
 
@@ -227,31 +225,31 @@ class WARDuino(ASerial):
     def stopEventThread(self):
         self.__eventThread = None
 
-    def pop_callstack(self, bp):
-        d = None
-        s = None
-        new_dumps = []
-        new_locs = []
-        assert len(self.__dumps) == len(self.__locals), 'not same length'
-        for i in range(len(self.__dumps)):
-            _dump = self.__dumps[i]
-            _locs = self.__locals[i]
+    # def pop_callstack(self, bp):
+    #     d = None
+    #     s = None
+    #     new_dumps = []
+    #     new_locs = []
+    #     assert len(self.__dumps) == len(self.__locals), 'not same length'
+    #     for i in range(len(self.__dumps)):
+    #         _dump = self.__dumps[i]
+    #         _locs = self.__locals[i]
 
-            if _dump['bp'] == bp:
-                d = _dump
-            else:
-                new_dumps.append(_dump)
+    #         if _dump['bp'] == bp:
+    #             d = _dump
+    #         else:
+    #             new_dumps.append(_dump)
 
-            if _locs['bp'] == bp:
-                s = _locs
-            else:
-                new_locs.append(_locs)
+    #         if _locs['bp'] == bp:
+    #             s = _locs
+    #         else:
+    #             new_locs.append(_locs)
 
-        assert d is not None
-        assert s is not None
-        self.__locals = new_locs
-        self.__dumps = new_dumps
-        return (d, s)
+    #     assert d is not None
+    #     assert s is not None
+    #     self.__locals = new_locs
+    #     self.__dumps = new_dumps
+    #     return (d, s)
 
 
     def add_stepdump(self, d):
@@ -282,6 +280,13 @@ class WARDuino(ASerial):
 
         replies = self.medium.send(msgs)
         return replies[-1]
+
+    def step_until(self, addr: str) ->  None:
+        dbgprint(f'stepping until addr {addr} offset {self.offset}')
+        (size_hex, addr_hex) = bp_addr_helper(self.offset, addr)
+        content = Interrupts['until'] + size_hex[2:] + addr_hex[2:] + '\n'
+        msg = AMessage(content.upper(), receive_until_ack)
+        return self.medium.send(msg)
 
     #private
     def __ask_for_offset(self) -> str:
@@ -322,17 +327,17 @@ def receive_run_ack(_, sock):
     sock.recv_bytes(AnsProtocol['run'].encode())
     return True
 
-def receive_stepack(warduino: WARDuino, medium: AMedium) -> None:
+def receive_step_ack(warduino: WARDuino, medium: AMedium) -> None:
     medium.recv_bytes(AnsProtocol['step'].encode())
     medium.recv_bytes(b'STEP DONE!\n')
 
-def receive_stepdump(aSerializer, sock):
-    dump_json = receive_dump_helper(sock)
-    aSerializer.add_stepdump(dump_json)
+# def receive_stepdump(aSerializer, sock):
+#     dump_json = receive_dump_helper(sock)
+#     aSerializer.add_stepdump(dump_json)
 
-def receive_steplocals(aSerializer, sock):
-    locals_json = receive_locals_helper(sock)
-    aSerializer.add_steplocals(locals_json)
+# def receive_steplocals(aSerializer, sock):
+#     locals_json = receive_locals_helper(sock)
+#     aSerializer.add_steplocals(locals_json)
 
 
 def receive_dump(aSerializer, sock):
@@ -368,6 +373,15 @@ def receive_addbp(warduino, aMedium) -> bool:
     dbgprint(f"added bp {bp_bytes.decode()}")
     return True
 
+def receive_until_ack(warduino, aMedium) -> bool:
+    dbgprint("receive until pc")
+    bp_end = b'!\n'
+    _ = aMedium.recv_bytes(b'Until ')
+    bp_bytes = aMedium.recv_bytes(bp_end)[:-len(bp_end)]
+    dbgprint(f"ack until pc {bp_bytes.decode()}")
+    aMedium.recv_bytes(b'STEP DONE!\n')
+    return True
+
 def receive_commitdone(warduino, aSocket):
     aSocket.recv_bytes(until=b'restart done!\n')
     dbgprint("received commit done")
@@ -375,12 +389,10 @@ def receive_commitdone(warduino, aSocket):
 
 def receive_ack(warduino, aMedium) -> bool:
     aMedium.recv_bytes(until=b'ack!\n')
-    dbgprint("received ack")
     return True
 
 def receive_done(warduino, aMedium) -> bool:
     aMedium.recv_bytes(until=b'done!\n')
-    dbgprint("received done")
     return True
 
 def receive_uploaddone(warduino, aMedium):
@@ -458,7 +470,6 @@ def warduino_state_to_wa_state(dump_json: dict, loc_json: dict) -> dict:
         'bytes': dump_json['memory']['bytes'],
     }
     state['br_table'] = dump_json['br_table']['labels']
-    dbgprint("TODO: globals")
     state['globals'] = dump_json['globals']
     state['stack'] =  [s for s in loc_json['stack']]
 
@@ -540,7 +551,6 @@ def wa_state_to_warduino_state(_json: dict, offset: str) -> dict:
         callstack.append(_f)
 
     callstack.sort(key = lambda f: f['idx'], reverse= False)
-    dbgprint(f'frames {callstack}')
     state['callstack'] = callstack
 
     return state

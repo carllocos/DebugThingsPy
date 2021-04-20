@@ -1,39 +1,21 @@
 from __future__ import annotations
 from typing import List, Any, Union
+from dataclasses import dataclass, field
+
+from utils import dbgprint, errprint
 from web_assembly import SectionDetails, ModuleDetails, DBGInfo
 
 
 #TODO make code more efficient by overwriting magic functions __lt__, __le__, __gt__, __ge__ and __equal__
 
+@dataclass
 class Expr:
-
-    def __init__(self, linenr: int, colstart: int, colend: int, addr: int, type_expr: str) -> Expr:
-       self.__linenr = linenr
-       self.__colstart = colstart
-       self.__colend = colend
-       self.__addr = addr
-       self.__type = type_expr
-       self.__code = None
-
-    @property
-    def linenr(self) -> int:
-        return self.__linenr
-
-    @property
-    def colstart(self) -> int:
-        return self.__colstart
-
-    @property
-    def colend(self)-> int:
-        return self.__colend
-
-    @property
-    def addr(self)-> int:
-        return self.__addr
-
-    @property
-    def exp_type(self)-> str:
-        return self.__type
+    linenr: Union[None, int]
+    colstart: Union[None, int]
+    colend: Union[None, int]
+    addr: str
+    exp_type: str
+    __code: Union[None, Code] = field(repr=False, init=False, default=None)
 
     @property
     def code(self) -> Union[Code, None]:
@@ -63,6 +45,8 @@ class Code:
     def __init__(self, func_idx: int, body: List[Expr]) -> Code:
         self.__func_idx = func_idx
         self.__body = body
+        self.__ends = None
+        self.__code_end = None
         for e in body:
             e.code = self
 
@@ -74,6 +58,12 @@ class Code:
     def expressions(self) -> List[Expr]:
         return self.__body
 
+    @property
+    def end(self) -> Expr:
+        if self.__code_end is None:
+            self.__fill_ends()
+        return self.__code_end
+
     def linenr(self, nr):
         return list(filter(lambda i: i.linenr == nr, self.expressions))
 
@@ -84,6 +74,40 @@ class Code:
 
     def exp_type(self, exp):
         return list(filter(lambda i: i.exp_type == exp, self.expressions))
+
+    def next_instr(self, exp: Expr) -> Union[None, Expr]:
+        return next((e for e in self.expressions if e.addr > exp.addr), None)
+
+    def __fill_ends(self) -> None:
+        self.__ends = {}
+        ends = list(filter(lambda e: e.exp_type == 'end', self.expressions))
+        self.__code_end = ends[-1]
+        ends = ends[:-1]
+        pos = 0
+        if len(ends) > 0:
+            ifs = []
+            for e in self.expressions:
+                if e.exp_type not in ['if', 'loop', 'block', 'else']:
+                    continue
+                if e.exp_type == 'else':
+                    self.__ends[e.addr] =  self.__ends[ifs[-1].addr]
+                    ifs = ifs[:-1]
+                    if pos >= len(ends) and len(ifs) == 0:
+                        break
+                    continue
+
+                if e.exp_type == 'if':
+                    ifs.append(e)
+
+                self.__ends[e.addr] = ends[pos]
+                pos+=1
+                if pos >= len(ends) and len(ifs) == 0:
+                    break
+
+    def end_expr(self, exp: Expr ) -> Union[None, Expr]:
+        if self.__ends is None:
+            self.__fill_ends()
+        return self.__ends.get(exp.addr, None)
 
     def __getitem__(self, key: Any) -> Union[Expr, None]:
         if isinstance(key, int):
@@ -130,6 +154,6 @@ class Codes:
         codes = mod['codes']
         codes_lst = []
         for func_idx, intrs in codes.items():
-            exps = [ Expr(e['line'], e['col_start'], e['col_end'], e['addr'], e['type'])  for  e in intrs]
+            exps = [ Expr(e.get('line', None), e.get('col_start', None), e.get('col_end', None), e['addr'], e['type'])  for  e in intrs]
             codes_lst.append(Code(func_idx,exps))
         return Codes(codes_lst)

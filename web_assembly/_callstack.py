@@ -69,6 +69,10 @@ class Frame:
         args_amount = len(fun.signature.parameters)
         return self.stack[fp : fp + args_amount]
 
+    def copy(self):
+        #TODO replace with propery copyj
+        return StackValue.from_json(self.to_json())
+
     def to_json(self) -> dict:
         _json =  {
             'idx': self.idx,
@@ -141,7 +145,7 @@ class CallStack:
         self.__idx += 1
         return f
 
-    def get_update(self) -> Union[None, CallStack]:
+    def get_update(self, mod: WAModule) -> Union[None, CallStack]:
         return None
 
     def has_next(self) -> bool:
@@ -162,6 +166,14 @@ class CallStack:
         for f in self.frames:
             s = s + str(f) + '\n'
         print(s)
+
+    def copy(self) -> CallStack:
+        _frames = [f for f in self.all_frames]
+        cs = CallStack(_frames)
+        cs.module = self.module
+        cs.stack = self.stack
+
+        return cs
 
     def to_json(self) -> List[dict]:
         return {'callstack': [f.to_json() for f in self.__frames] }

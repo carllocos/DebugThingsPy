@@ -10,7 +10,6 @@ class StackValue(ConstValue):
         super().__init__(_type, val)
         self.__idx = idx
         self.__stack = None
-        self.__update = None
         self.__original = None
         self.__name = name
 
@@ -43,9 +42,10 @@ class StackValue(ConstValue):
         self.__stack = s
 
     def _set_value(self, v) -> None:
-        nsv = StackValue(self.type, v, self.idx)
-        nsv.stack = self.stack
-        self.__update = nsv
+        if self.__original is None:
+            self.__original = self.copy()
+            self.__original.stack = self.stack
+        return v
 
     def __str__(self) -> str:
         return f'{self.idx}: {self.type}.const  {self.value}'
@@ -58,19 +58,19 @@ class StackValue(ConstValue):
 
     @property
     def modified(self) -> bool:
-        return self.__update is not None
+        return self.__original is not None
 
     def get_latest(self) -> StackValue:
+        v = self.copy()
         if not self.modified:
-            return self.copy()
+            return v
 
-        self.__modified = False
-        up = self.__update
-        self.__update = None
-        return up
+        self.value = self.__original.value
+        self.__original = None
+        return v
 
     def copy(self) -> StackValue:
-        return StackValue(self.type, self.value, self.idx)
+        return StackValue(self.type, self.value, self.idx, self.name)
 
     def to_json(self) -> dict:
         return {
@@ -119,7 +119,7 @@ class Stack:
                 return True
         return False
 
-    def get_update(self) -> Union[None, Stack]:
+    def get_update(self, mod: Any) -> Union[None, Stack]:
         if not self.modified:
             return None
 
@@ -139,6 +139,12 @@ class Stack:
         for v in self.__values:
             s = s + str(v) + '\n'
         print(s)
+
+    def copy(self) -> Stack:
+        s = Stack()
+        for v in self.values:
+            s += v.copy()
+        return s
 
     def to_json(self) -> dict:
         return { 'stack': [sv.to_json() for sv in self.values]}
