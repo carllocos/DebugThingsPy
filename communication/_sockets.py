@@ -8,27 +8,15 @@ import signal
 import sys
 import select
 
-
+from utils import dbgprint, errprint
 from interfaces import AMedium, AMessage
-
-DEBUG = False
-
-def dbgprint(s):
-    curframe = inspect.currentframe()
-    calframe = inspect.getouterframes(curframe, 2)
-    cn =str(calframe[1][3])
-    if DEBUG:# and cn in ONLY:
-        print((cn + ':').upper(), s)
-
-def errprint(s):
-    print(s)
-    sys.exit()
 
 class SocketWrapper:
 
     def __init__(self, sock):
         self.__sock = sock
         self.__recvbuff = b''
+        self.__connected = True
 
     @property
     def recvbuff(self):
@@ -42,6 +30,14 @@ class SocketWrapper:
     def socket(self):
         return self.__sock
 
+    @property
+    def connected(self) -> bool:
+        return self.__connected
+    
+    def close(self) -> None:
+        print("closing socket")
+        self.__sock.close()
+        self.__connected = False
 
     def send(self, d):
         return self.socket.send(d)
@@ -52,13 +48,24 @@ class SocketWrapper:
     def add_bytes(self, b):
         self.__recvbuff += b
 
+    def pop_until(self, until: bytes) -> Union[bytes, None]:
+        pos = self.recvbuff.find(until)
+        if pos < 0:
+            return None
+
+        end = pos + len(until)
+        remain = self.recvbuff[end:]
+        buff = self.recvbuff[:end]
+        self.recvbuff = remain
+        return buff
+
 class Sockets(AMedium):
     def __init__(self, port, host, _maxsend= 1024):
         self.__port = port
         self.__host = clean_host(host)
         self.__serializer = None
         self.__socket = None
-        self.__sockAtBp = None
+        self.__evsocket = None
         self.__fp = None
 
         assert _maxsend > 0, f'{_maxsend} > {0}'
@@ -73,7 +80,16 @@ class Sockets(AMedium):
 
     @property
     def connected(self) -> bool:
-        return self.__socket is not None
+        if self.socket is None:
+            return False
+        elif not self.socket.connected:
+            return False
+        elif self.event_socket is None:
+            return False
+        elif not self.event_socket.connected:
+            return False
+
+        return True
 
     @property
     def port(self) -> int:
@@ -97,7 +113,7 @@ class Sockets(AMedium):
 
     @property
     def event_socket(self) -> SocketWrapper:
-        return self.__sockAtBp
+        return self.__evsocket
 
     def getsockets(self):
         return (self.socket, self.event_socket)
@@ -108,6 +124,7 @@ class Sockets(AMedium):
 
     #API
     def start_connection(self, dev) -> bool:
+        #FIXME add try catch
         dbgprint(f'connecting at {self.host} port {self.port}')
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -116,7 +133,7 @@ class Sockets(AMedium):
         evsock.connect((self.host, self.port))
 
         self.__socket = SocketWrapper(sock)
-        self.__sockAtBp = SocketWrapper(evsock)
+        self.__evsocket = SocketWrapper(evsock)
 
         return True
 
@@ -144,57 +161,52 @@ class Sockets(AMedium):
         else:
             return replies[0]
 
-
-
     def has_event(self, timeout: float) -> bool:
-        sock = self.event_socket.socket
-        ready, _, err = select.select([sock], [],[sock], timeout)
-        if err:
-            errprint(f'socket has error {err}')
+        if len(self.event_socket.recvbuff) > 0:
+            return True
+
+        if not self.event_socket.connected:
+            return False
+
+        evsock = self.event_socket.socket
+        io_sock = self.socket.socket
+        ready, _, err = select.select([evsock], [],[evsock, io_sock], timeout)
+
+        for e in err:
+            if e == io_sock:
+                self.socket.close()
+            else:
+                self.event_socket.close()
         return len(ready) > 0
 
-    def recv_bytes(self, until: Union[bytes, None] = None, event:bool = False) -> bytes:
+    def recv_until(self, until: Union[List[bytes], bytes], event:bool = False, wait: bool = True) -> bytes:
         aSocket =  self.event_socket if event else self.socket
-
-        if until is None:
-            errprint('until is None')
+        _untils = until
+        if isinstance(until, bytes):
+            _untils = [until]
 
         if len(aSocket.recvbuff) > 0:
-            pos = aSocket.recvbuff.find(until)
-            dbgprint('from accumulated!')
-            if pos != -1:
-                end = pos + len(until)
-                remain = aSocket.recvbuff[end:]
-                buff = aSocket.recvbuff[:end]
-                aSocket.recvbuff = remain
-                return buff
+            for u in _untils:
+                _bytes = aSocket.pop_until(u)
+                if _bytes is not None:
+                    return _bytes
 
-        while True:
-            aSocket.add_bytes(aSocket.recv(self.recvbuff_size))
-            pos = aSocket.recvbuff.find(until)
-            if pos != -1:
-                dbgprint(f'from accr {aSocket.recvbuff}')
-                end = pos + len(until)
-                remain = aSocket.recvbuff[end:]
-                buff = aSocket.recvbuff[:end]
-                aSocket.recvbuff = remain
-                return buff
+        while wait:
+            if not aSocket.connected:
+                return b''
 
-def start_recvdbg(sock):
-    print("START receive Debug info")
-    timeout_secs = 1
-    _buff = b''
-    while True:
-        ready = select.select([sock], [],[], timeout_secs)
-        if not ready[0]:
-            continue
+            _bytes = aSocket.recv(self.recvbuff_size)
+            if len(_bytes) == 0:
+                print("closing connection")
+                dbgprint("connection closed")
+                aSocket.close()
+                return b''
 
-        _buff += sock.recv(1024)
-        try:
-            print(_buff.decode(), end="")
-            _buff = b''
-        except:
-            print( "failed to decode")
+            aSocket.add_bytes(_bytes)
+            for u in _untils:
+                _bytes = aSocket.pop_until(u)
+                if _bytes is not None:
+                    return _bytes
 
 def clean_host(h: str) -> str:
     cleaned = h.lower().strip()

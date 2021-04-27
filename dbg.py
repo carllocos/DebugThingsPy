@@ -25,7 +25,9 @@ def start_dbg(config: json):
     dbgs= []
     for c in filtered:
         d = load_device(c)
-        dbgs.append(Debugger(d, mod))
+        deb = Debugger(d, mod)
+        deb.policies = c.get('policies', [])
+        dbgs.append(deb)
 
     _loc = next((d for d in dbgs if d.device.is_local), None)
     _rmt = next((d for d in dbgs if d.device.is_remote), None)
@@ -69,7 +71,7 @@ if __name__ == "__main__":
     if config is None:
         print("provide config file --config")
     else:
-       
+
         dbg = start_dbg(config)
         if dbg is not None:
             rmt = dbg.remote_device

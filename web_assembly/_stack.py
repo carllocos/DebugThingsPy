@@ -128,7 +128,9 @@ class Stack:
            s += v.get_latest()
 
         return s
-
+    
+    def __len__(self) -> int:
+        return len(self.values)
    
     def reset_iterator(self):
         self.__idx = 0

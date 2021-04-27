@@ -17,9 +17,11 @@ class DebugSession(object):
         self.__br_table = kwargs['br_table']
         self.__globals = kwargs['globals']
         self.__device = kwargs['device']
+        self.__exception = None
         self.__instr = None
         self.__valid = None
         self.__version = None
+        self.__pc_error = kwargs.get('pc_error', None)
 
     @property
     def version(self) -> Union[int, None]:
@@ -30,6 +32,23 @@ class DebugSession(object):
         if self.__version is not None:
             raise ValueError('cannot change the version of an already registered session')
         self.__version = v
+
+    @property
+    def pc_error(self) -> Union[Expr, None]:
+        if isinstance(self.__pc_error, str):
+            m  = self.__module
+            i = m.codes.addr(self.__pc_error)
+            if i is not None:
+                self.__pc_error = i
+        return self.__pc_error
+
+    @property
+    def exception(self) -> Union[str, None]:
+        return self.__exception
+    
+    @exception.setter
+    def exception(self, excp_msg: str) -> None:
+        self.__exception = excp_msg
 
     @property
     def module(self) -> WAModule:
@@ -175,4 +194,7 @@ class DebugSession(object):
             'globals': _globals,
             'device': device
         }
+
+        if _json.get('pc_error', None) is not None:
+            kwargs['pc_error'] = _json['pc_error']
         return DebugSession(**kwargs)

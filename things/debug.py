@@ -5,6 +5,8 @@ from utils import valid_addr, dbgprint, errprint
 from web_assembly import WAModule, Expr
 from things import ChangesHandler, DebugSession
 
+#FIXME if needed reconnect silently to disconnected device 
+
 class Debugger:
     def __init__(self, dev, wamodule = None):
         super().__init__()
@@ -14,6 +16,7 @@ class Debugger:
         self.__wamodule = wamodule
         self.__proxy_config = None
         dev.debugger = self
+        self.__policies = []
 
 
     @property
@@ -29,6 +32,14 @@ class Debugger:
         return self.__device
 
     @property
+    def policies(self) -> List[str]:
+        return self.__policies
+
+    @policies.setter
+    def policies(self, p: List[str]) -> None:
+        self.__policies = p
+
+    @property
     def module(self) -> WAModule:
         return self.__wamodule
 
@@ -41,16 +52,21 @@ class Debugger:
         self.__breakpoints = nb
 
     def connect(self):
-        c = self.device.connect()
+        c = self.device.connect(self.__handle_event)
         if not c:
             dbgprint(f"connection failed to {self.device.name}")
         else:
             dbgprint(f'connected to {self.device.name}') 
-        pc = self.__proxy_config
 
+        pc = self.__proxy_config
         if pc is not None and len(pc.get('proxy', [])) > 0:
             self.device.send_proxies(pc)
 
+    def reconnect(self):
+        if self.device.connect():
+            dbgprint(f'connected to {self.device.name}') 
+        else:
+            dbgprint(f"reconnection attempt failed to {self.device.name}")
 
     def halt(self, code_info):
         print('received halt request')
@@ -60,6 +76,9 @@ class Debugger:
         # self.__medium.send(_msgs, self.__device)
 
     def run(self) -> None:
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return 
         self.__update_session()
         if self.device.run():
             dbgprint(f'device {self.device.name} is running')
@@ -73,8 +92,11 @@ class Debugger:
         # self.__medium.send(_msgs, self.__device)
 
     def step(self, amount = 1) -> DebugSession:
-        self.__update_session()
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return 
 
+        self.__update_session()
         self.device.step(amount)
         _json = self.device.get_execution_state()
         _sess = DebugSession.from_json(_json, self.module, self.device)
@@ -82,6 +104,10 @@ class Debugger:
         return _sess
 
     def step_over(self, expr: Union[Expr,DebugSession, None] = None) -> DebugSession:
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return 
+
         if expr is None:
             expr = self.changes_handler.session.pc
         elif isinstance(expr, DebugSession):
@@ -108,13 +134,21 @@ class Debugger:
         return _sess
 
     def add_breakpoint(self, expr: Expr) -> None:
-        if self.device.add_breakpoint(expr.addr, self.__atbreakpoint):
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return 
+
+        if self.device.add_breakpoint(expr.addr):
             dbgprint(f"breakpoint added at {expr}")
             self.breakpoints.append(expr.copy())
         else:
             dbgprint(f'failed to add breakpoint {expr}')
 
     def remove_breakpoint(self, inst: Expr) -> None:
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return 
+
         if self.device.remove_breakpoint(inst.addr):
             dbgprint(f'breakpoint {inst} removed')
             self.breakpoints = list(filter(lambda i: i.addr != inst.addr, self.breakpoints))
@@ -125,6 +159,10 @@ class Debugger:
         pass
 
     def commit(self, mod: Union[WAModule, None] = None):
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return 
+
         wasm = None
         if mod is not None:
             wasm = mod.compile()
@@ -159,23 +197,39 @@ class Debugger:
         return cleaned_config
 
     def upload_proxies(self, proxy_config: Union[None, dict] = None) -> None:
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return 
+
         if proxy_config is None:
             proxy_config = self.__proxy_config
         if proxy_config is not None:
             self.device.send_proxies(proxy_config)
         
     def upload(self, mod: WAModule, config: dict) -> None:
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return 
+
         cleaned_config = self.validate_proxyconfig(mod, config)
         wasm = mod.compile()
         self.device.upload(wasm, cleaned_config)
 
     def debug_session(self):
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return 
+
         _json = self.device.get_execution_state()
         _sess = DebugSession.from_json(_json, self.module, self.device)
         self.changes_handler.add(_sess)
         return _sess
 
     def receive_session(self, debugsess: DebugSession) -> None:
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return 
+
         if debugsess.modified:
             upd = debugsess.get_update()
             if not upd.valid:
@@ -193,9 +247,29 @@ class Debugger:
         self.__proxy_config = cleaned_config
 
     #private methods
-    def __atbreakpoint(self, bp: str) -> None:
-        dbgprint(f"reached breakpoint {bp}")
-        self.debug_session()
+    def __handle_event(self, event: dict) -> None:
+        ev = event['event']
+        if ev == 'at bp':
+            dbgprint(f"reached breakpoint {event}")
+            self.debug_session()
+            if 'non-stoppable-app' in self.policies:
+                dbgprint(f"applying `non-stoppable-app' policy to `{self.device.name}`")
+                for bp in self.breakpoints:
+                    self.remove_breakpoint(bp)
+                self.run()
+
+        elif ev == 'disconnection':
+            dbgprint(f'device {self.device.name} disconnected')
+
+        elif ev == 'error':
+            print("error occured")
+            dbgprint(f'error occured at device {self.device.name}')
+            _sess = DebugSession.from_json(event['execution_state'], self.module, self.device)
+            _sess.exception = event['msg']
+            self.changes_handler.add(_sess)
+        else:
+            errprint('not understood event occurred')
+
 
     def __update_session(self, debugsess: Union[DebugSession, None] = None) -> None:
         ds = self.changes_handler.session if debugsess is None else debugsess
