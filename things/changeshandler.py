@@ -40,7 +40,8 @@ class ChangesHandler:
     #FIXME temporary returns bytes
     def commit(self) -> bytes:
         fp = self.module.filepath
-        fn = self.module.no_extension_filename + '_version' + str(self.version)
+        vs = 0 if self.session is None else self.session.version
+        fn = self.module.no_extension_filename + '_version' + str(vs)
         out = self.module.build_out
         _bytes = wat2wasm(fp, fn, '' if out is None else out)
         return _bytes
