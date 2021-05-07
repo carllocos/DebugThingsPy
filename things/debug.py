@@ -255,7 +255,6 @@ class Debugger:
         ev = event['event']
         if ev == 'at bp':
             dbgprint(f"reached breakpoint {event}")
-            dbgprint(f'policies {self.policies}')
             self.debug_session()
             if 'single-stop' in self.policies:
                 dbgprint(f"applying `single-stop' policy to `{self.device.name}`")

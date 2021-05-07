@@ -185,7 +185,6 @@ class WARDuino(ASerial):
         interrupt = Interrupts['updateModule']
         ask4commit = AMessage(interrupt + '\n', receive_ack)
         sers = encoder.serialize_wasm(interrupt, wasm, self.max_bytes)
-        print(f'sers {sers}')
 
         l = len(sers)
         msgs = [ask4commit]
