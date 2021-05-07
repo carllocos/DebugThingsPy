@@ -136,3 +136,4 @@ dmypy.json
 c_libs/
 
 *.wasm
+out/*
