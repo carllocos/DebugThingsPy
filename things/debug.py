@@ -54,19 +54,23 @@ class Debugger:
     def connect(self):
         c = self.device.connect(self.__handle_event)
         if not c:
-            dbgprint(f"connection failed to {self.device.name}")
+            dbgprint(f"connection failed to `{self.device.name}`")
         else:
-            dbgprint(f'connected to {self.device.name}') 
+            dbgprint(f'connected to `{self.device.name}`') 
 
         pc = self.__proxy_config
         if pc is not None and len(pc.get('proxy', [])) > 0:
             self.device.send_proxies(pc)
 
+        if self.device.is_local:
+            self.commit()
+
+
     def reconnect(self):
         if self.device.connect():
-            dbgprint(f'connected to {self.device.name}') 
+            dbgprint(f'connected to `{self.device.name}`') 
         else:
-            dbgprint(f"reconnection attempt failed to {self.device.name}")
+            dbgprint(f"reconnection attempt failed to `{self.device.name}`")
 
     def halt(self, code_info):
         print('received halt request')
@@ -251,12 +255,20 @@ class Debugger:
         ev = event['event']
         if ev == 'at bp':
             dbgprint(f"reached breakpoint {event}")
+            dbgprint(f'policies {self.policies}')
             self.debug_session()
-            if 'non-stoppable-app' in self.policies:
-                dbgprint(f"applying `non-stoppable-app' policy to `{self.device.name}`")
+            if 'single-stop' in self.policies:
+                dbgprint(f"applying `single-stop' policy to `{self.device.name}`")
                 for bp in self.breakpoints:
                     self.remove_breakpoint(bp)
                 self.run()
+            elif 'remove-and-proceed' in self.policies:
+                dbgprint(f"applying `remove-and-proceed` policy to `{self.device.name}`")
+                expr = self.module.addr(event['breakpoint'])
+                dbgprint(f"the expr {expr}")
+                self.remove_breakpoint(expr)
+                self.run()
+
 
         elif ev == 'disconnection':
             dbgprint(f'device {self.device.name} disconnected')
