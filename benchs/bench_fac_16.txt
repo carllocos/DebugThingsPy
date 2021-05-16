@@ -1,0 +1,14 @@
+time:0.30370792699977756,callstack:34,stack:17
+time:0.28085638699121773,callstack:34,stack:17
+time:0.23597592700389214,callstack:34,stack:17
+time:0.2877287590090418,callstack:34,stack:17
+time:0.4846776289923582,callstack:34,stack:17
+time:0.8524443630012684,callstack:34,stack:17
+time:0.5614681949955411,callstack:34,stack:17
+time:0.7504658340039896,callstack:34,stack:17
+time:0.6376655030035181,callstack:34,stack:17
+time:0.14180039100756403,callstack:34,stack:17
+time:0.22383543600153644,callstack:34,stack:17
+time:0.23536838201107457,callstack:34,stack:17
+time:0.29980033499305137,callstack:34,stack:17
+time:0.5754122970101889,callstack:34,stack:17

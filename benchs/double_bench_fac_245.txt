@@ -1,0 +1,4 @@
+time:3.403697180998279,callstack:492,stack:246
+time:6.4464041700121015,callstack:492,stack:246
+time:19.842865633007023,callstack:491,stack:246
+time:4.357102270005271,callstack:492,stack:246
