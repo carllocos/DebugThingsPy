@@ -1,9 +1,12 @@
 from __future__ import annotations
+from os import EX_DATAERR
 from typing import Union, List
 
 from utils import valid_addr, dbgprint, errprint
 from web_assembly import WAModule, Expr
 from things import ChangesHandler, DebugSession
+
+import time
 
 #FIXME if needed reconnect silently to disconnected device 
 
@@ -18,6 +21,18 @@ class Debugger:
         dev.debugger = self
         self.__policies = []
 
+        #temporaty
+        self.__bench = ""
+
+    def bench_name(self, n:str) -> None:
+        self.__bench = n
+
+    def register_measure(self, tstart, tend, sess):
+        s = f"time:{tend - tstart},callstack:{len(sess.callstack.all_frames)},stack:{len(sess.stack)}\n"
+        print(s)
+        f = open(self.__bench , "a")
+        f.write(s)
+        f.close()
 
     @property
     def session(self) -> Union[None, DebugSession]:
@@ -63,7 +78,8 @@ class Debugger:
             self.device.send_proxies(pc)
 
         if self.device.is_local:
-            self.commit()
+            pass
+            #self.commit()
 
 
     def reconnect(self):
@@ -83,7 +99,7 @@ class Debugger:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
             return 
-        self.__update_session()
+        # self.__update_session() #TODO uncomment
         if self.device.run():
             dbgprint(f'device {self.device.name} is running')
         else:
@@ -219,13 +235,22 @@ class Debugger:
         wasm = mod.compile()
         self.device.upload(wasm, cleaned_config)
 
+
     def debug_session(self):
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
             return 
-
+        starttime = time.monotonic()
         _json = self.device.get_execution_state()
         _sess = DebugSession.from_json(_json, self.module, self.device)
+        end2 = time.monotonic()
+        self.register_measure(starttime, end2, _sess)
+        # s = f"time:{end2 - starttime},callstack:{len(_sess.callstack.all_frames)},stack:{len(_sess.stack)}\n"
+        # print(s)
+        # f = open(self.__bench , "a")
+        # f.write(s)
+        # f.close()
+
         self.changes_handler.add(_sess)
         return _sess
 
@@ -255,6 +280,7 @@ class Debugger:
         ev = event['event']
         if ev == 'at bp':
             dbgprint(f"reached breakpoint {event}")
+            self.__reachedbp = True
             self.debug_session()
             if 'single-stop' in self.policies:
                 dbgprint(f"applying `single-stop' policy to `{self.device.name}`")
@@ -277,6 +303,8 @@ class Debugger:
             dbgprint(f'error occured at device {self.device.name}')
             _sess = DebugSession.from_json(event['execution_state'], self.module, self.device)
             _sess.exception = event['msg']
+            end = event['time'].monotonic()
+            self.register_measure(event['start_time'], end, _sess)
             self.changes_handler.add(_sess)
         else:
             errprint('not understood event occurred')

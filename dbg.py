@@ -65,6 +65,28 @@ def load_config(path: Union[str, None] = None)-> None:
     return config
 
 
+
+def benchmark_fac_limits(arg):
+    import time
+    [i] = mod.linenr(30)
+
+    dev = rmt
+    dev.bench_name("double_bench_fac_" +str(arg) + ".txt")
+    dev.connect()
+    dev.add_breakpoint(i)
+    dev.run()
+    for i in range(10):
+        while dev.session is None or dev.session.version != i:
+            print("sleeping 0.5secs")
+            time.sleep(0.5)
+
+        assert dev.session.version == i, f'incorrect {dev.session.version} != {i}'
+
+        if i != 9:
+            print("Send Run")
+            dev.run()
+    print("done bechmark_FAC_LIMITS")
+
 if __name__ == "__main__":
     path = None
     config = load_config(path)
