@@ -205,13 +205,12 @@ class WARDuino(ASerial):
 
     def get_execution_state(self):
         dump_msg = AMessage(Interrupts['dump'] + '\n', receive_dump)
-        locs_msg = AMessage(Interrupts['locals'] + '\n', receive_locals)
-        [_dumpjson, _locjson ] = self.medium.send([dump_msg, locs_msg])
+        _dumpjson = self.medium.send(dump_msg)
         if self.offset != _dumpjson['start'][0]:
             dbgprint('new offset')
             self.offset = _dumpjson['start'][0]
 
-        return warduino_state_to_wa_state(_dumpjson, _locjson)
+        return warduino_state_to_wa_state(_dumpjson)
 
 
     # Helper methods
@@ -260,11 +259,12 @@ class WARDuino(ASerial):
 
 # receive socket content functions
 def receive_events(warduino: WARDuino, aMedium: AMedium, callback: callable) -> None:
+    import time #TODO remove
     at_start = b'AT '
     at_end = b'!\n'
     err_start = b'{"error":'
     err_end = b'}\n'
-    timeout = float(0.2)
+    timeout = float(0.1)
     while True:
         if not aMedium.has_event(timeout):
             continue
@@ -282,24 +282,27 @@ def receive_events(warduino: WARDuino, aMedium: AMedium, callback: callable) -> 
         if _start.find(at_start) >= 0:
             print("at bp ")
             _bp = _end[:-len(at_end)].decode()
-            dbgprint(f'decoded {_bp}')
-            dbgprint(f'offset is {warduino.offset}')
+            # dbgprint(f'decoded {_bp}')
+            # dbgprint(f'offset is {warduino.offset}')
             bp = hex(int(_bp , 16) - int(warduino.offset, 16))
             callback({'event': 'at bp', 'breakpoint': bp})
         else:
-            print(f"error occured {_start} _end= {_end}")
+            # print(f"error occured {_start} _end= {_end}")
              #TODO hash error?
+            start = time.monotonic()
             _dump = receive_dump(warduino, aMedium)
-            print("received dhu")
-            _locs = receive_locals(warduino, aMedium)
-            print("received locs")
+            # print("received dhu")
+            # _locs = receive_locals(warduino, aMedium)
+            # print("received locs")
             _bytes = err_start + _end[:-len(b'\n')]
             _obj = json.loads(_bytes.decode())
             _event = {
                 'event': 'error',
-                'msg': _obj['error']
+                'msg': _obj['error'],
+                'start_time': start,
+                'time':time
             }
-            _event['execution_state'] = warduino_state_to_wa_state(_dump, _locs)
+            _event['execution_state'] = warduino_state_to_wa_state(_dump)
             callback(_event)
 
     dbgprint("stopping event thread")
@@ -329,16 +332,16 @@ def receive_dump(warduino: WARDuino, aMedium: AMedium):
     return dump_json
 
 
-def receive_locals(warduino: WARDuino, aMedium: AMedium):
-    loc_json = receive_locals_helper(aMedium)
-    return loc_json
+# def receive_locals(warduino: WARDuino, aMedium: AMedium):
+#     loc_json = receive_locals_helper(aMedium)
+#     return loc_json
 
-def receive_locals_helper(aMedium: AMedium):
-    loc_end = b'\n'
-    _noise = aMedium.recv_until(b'STACK')
-    byts = aMedium.recv_until(loc_end)[:-len(loc_end)]
-    parsed = json.loads(byts)
-    return parsed
+# def receive_locals_helper(aMedium: AMedium):
+#     loc_end = b'\n'
+#     _noise = aMedium.recv_until(b'STACK')
+#     byts = aMedium.recv_until(loc_end)[:-len(loc_end)]
+#     parsed = json.loads(byts)
+#     return parsed
 
 def receive_rmvbp(warduino, aMedium) -> bool:
     dbgprint("receive rmvbp")
@@ -409,12 +412,16 @@ def receive_dump_helper(sock):
     labels = sock.recv_until(raw_end)[:-re_len]
     json_bytes += sock.recv_until(b'\n')[:-len(b'\n')]
 
-    parsed = json.loads(json_bytes.decode())
+    dec=None
+    try:
+        dec = json_bytes.decode()
+    except: 
+        print(f"failed for raw {json_bytes}")
+        raise ValueError("something wrong")
 
+    parsed = json.loads(dec)
     parsed['memory']['bytes'] = membytes
-
     parsed['table']['elements'] = bytes2int(elements)
-
     br_tbl = parsed['br_table']
     br_tbl['size'] = int(br_tbl['size'], 16)
     br_tbl['labels'] = bytes2int(labels)
@@ -436,7 +443,7 @@ def bp_addr_helper(offset, code_addr):
         _hex = '0x0' + _hex[2:]
     return (_hex, bp_addr)
 
-def warduino_state_to_wa_state(dump_json: dict, loc_json: dict) -> dict:
+def warduino_state_to_wa_state(dump_json: dict) -> dict:
     offset = int(dump_json['start'][0], 16)
     state = {}
     state['pc'] = hex( int(dump_json['pc'], 16) - offset)
@@ -457,7 +464,7 @@ def warduino_state_to_wa_state(dump_json: dict, loc_json: dict) -> dict:
     }
     state['br_table'] = dump_json['br_table']['labels']
     state['globals'] = dump_json['globals']
-    state['stack'] =  [s for s in loc_json['stack']]
+    state['stack'] =  [s for s in dump_json['stack']]
 
     _frame_types = {
         0: 'fun',
