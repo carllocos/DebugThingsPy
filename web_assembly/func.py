@@ -77,11 +77,9 @@ class Functions:
         sec : SectionDetails = dbg_info[0]
         mod : ModuleDetails = dbg_info[1]
 
-        # imports = mod['imports']
-        # code = mod['code']
-        exports = mod['exports']
-        imports = {}
         funcs = []
+        imports_quantity = mod.get('imports', 0)
+        exports = mod['exports']
         _locals= mod.get('locals', {})
         for f in mod['funcs']:
 
@@ -95,8 +93,11 @@ class Functions:
             idx = f['idx']
             name = f.get('name', None)
             export_name = exports.get(idx, None)
-            import_name = imports.get(idx, None)
-            code = codes[idx]
+            import_name = f.get('import_name', None)
+            code_idx =  idx 
+            if imports_quantity > 0:
+                code_idx = idx - imports_quantity
+            code = codes[code_idx]
             _fun_locals = []
             for _loc in _locals.get(idx, []):
                 _fun_locals.append(Local(_loc['idx'], _loc['name']))

@@ -201,20 +201,6 @@ def read_sourcemap(file: Union[PurePath, str]) -> Any:
             line = sources.readline()
 
     return sourcemaps
-# ; section "Code" (10)
-# 0000028: 0a                                        ; section code
-# 0000029: 00                                        ; section size (guess)
-# 000002a: 03                                        ; num functions
-# ; function body 0
-# 000002b: 00                                        ; func body size (guess)
-# 000002c: 00                                        ; local decl count
-# 000002d: 0b                                        ; end
-# 000002b: 02                                        ; FIXUP func body size
-# ; function body 1
-# 000002e: 00                                        ; func body size (guess)
-# 000002f: 00                                        ; local decl count
-# @ { line: 22, col_start: 9, col_end: 18 }
-# 0000030: 20                                        ; local.get
         
 def read_types(container, lines) -> None:
     types = []
@@ -244,29 +230,15 @@ def read_types(container, lines) -> None:
 
     container['types'] = types
 
+
 def read_functions(container, lines):
 # Function[3]:
 #  - func[0] sig=0 <dummy>
 #  - func[1] sig=2 <fac>
 #  - func[2] sig=1 <fac5>
-    funcs = []
+    funcs = container.get('funcs', [])
     for fun_line in lines:
-        words = fun_line.split()
-
-        #expected line e.g '- func[0] sig=0 <funcName>'
-        assert len(words) >= 4, f'func definition incorrect format. Got {words}'
-
-        func_idx_str = ''.join(re.findall(r'\d+', words[1]))
-        func_idx = int(func_idx_str)
-        sign_idx_str = words[2].split('=')[1]
-        sign_idx = int(sign_idx_str)
-
-        func_name = words[3]
-
-        #remove '<' '>'chars
-        func_name = func_name[1:-1] 
-        funcs.append({'name': func_name, 'idx': func_idx, 'signature': sign_idx})
-
+        funcs.append(parse_function(fun_line))
     container['funcs'] = funcs
 
 
@@ -286,7 +258,17 @@ def read_export(container , lines):
     container['exports'] = exps
 
 def read_import(container, lines):
-    pass
+# Import[3]:
+#  - func[0] sig=0 <delay> <- env.chip_delay
+#  - func[1] sig=2 <getCTemp> <- env.sht3x_ctemp
+#  - func[2] sig=3 <sendTemp> <- env.write_f32
+    funcs = container.get('funcs', [])
+
+    for fun_line in lines:
+        funcs.append(parse_function(fun_line))
+
+    container['funcs'] = funcs
+    container['imports'] = len(lines)
 
 def read_code(container, lines):
     sizes = {}
@@ -353,6 +335,28 @@ def read_globals(container, lines):
         _globals.append(_global)
 
     container['globals'] = _globals
+
+def parse_function(fun_line : str) -> Dict[str, Union[int, str]]:
+#  fun_line = 'func[0] sig=0 <dummy>'
+# or
+#  fun_line = 'func[0] sig=0 <delay> <- env.chip_delay'
+    words = fun_line.split()
+    assert len(words) >= 4, f'func definition incorrect format. Got {words}'
+    func_idx_str = ''.join(re.findall(r'\d+', words[1]))
+    func_idx = int(func_idx_str)
+    sign_idx_str = words[2].split('=')[1]
+    sign_idx = int(sign_idx_str)
+
+    func_name = words[3]
+
+    #remove '<' '>'chars
+    func_name = func_name[1:-1] 
+    f_obj = {'name': func_name, 'idx': func_idx, 'signature': sign_idx}
+    if len(words) > 4:
+        #fun_line = 'func[0] sig=0 <delay> <- env.chip_delay'
+        import_name = words[5]
+        f_obj['import_name'] = import_name
+    return  f_obj
 
 def read_tbl(container, lines):
 # Table[1]:
