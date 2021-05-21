@@ -1,0 +1,10 @@
+time:0.13177476600685623,callstack:68,stack:33
+time:0.19710580901301,callstack:68,stack:33
+time:0.20151333301328123,callstack:68,stack:33
+time:0.1435459880012786,callstack:68,stack:33
+time:0.15386581399070565,callstack:68,stack:33
+time:0.18061149600544013,callstack:68,stack:33
+time:0.14224008200108074,callstack:68,stack:33
+time:0.1622556770016672,callstack:68,stack:33
+time:0.15582013700623065,callstack:68,stack:33
+time:0.14016179100144655,callstack:68,stack:33
