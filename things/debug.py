@@ -30,9 +30,10 @@ class Debugger:
     def register_measure(self, tstart, tend, sess):
         s = f"time:{tend - tstart},callstack:{len(sess.callstack.all_frames)},stack:{len(sess.stack)}\n"
         print(s)
-        f = open(self.__bench , "a")
-        f.write(s)
-        f.close()
+        if self.__bench != '':
+            f = open(self.__bench , "a")
+            f.write(s)
+            f.close()
 
     @property
     def session(self) -> Union[None, DebugSession]:
@@ -201,7 +202,7 @@ class Debugger:
                     name = n[1:]
                 f = mod.functions[name]
                 if f is None:
-                    raise ValueError(f'configuration error: proxy function `{name} is not declared in module')
+                    raise ValueError(f'configuration error: proxy function `{name}` is not declared in module')
                 cleaned_config['proxy'].append(f.idx) 
 
         if config.get('host', False):
