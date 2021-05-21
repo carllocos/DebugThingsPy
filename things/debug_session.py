@@ -23,6 +23,15 @@ class DebugSession(object):
         self.__version = None
         self.__pc_error = kwargs.get('pc_error', None)
 
+        #TODO remove
+        self.__totalsize = kwargs.get('session_size', None)
+
+    @property
+    def total_size(self) -> Union[int, None]:
+        #TODO remove
+        print(f'SESSION SIZE {self.__totalsize}')
+        return self.__totalsize
+
     @property
     def version(self) -> Union[int, None]:
         return self.__version
@@ -197,4 +206,7 @@ class DebugSession(object):
 
         if _json.get('pc_error', None) is not None:
             kwargs['pc_error'] = _json['pc_error']
+        if _json.get('session_size', None) is not None:
+            kwargs['session_size'] = _json['session_size']
+
         return DebugSession(**kwargs)

@@ -274,7 +274,6 @@ def receive_events(warduino: WARDuino, aMedium: AMedium, callback: callable) -> 
         _end = aMedium.recv_until([at_end, err_end], event = True)
 
         if not aMedium.connected:
-            #Reconnection is a user choice
             warduino.connected = False
             callback({'event': 'disconnection'})
             break
@@ -282,18 +281,11 @@ def receive_events(warduino: WARDuino, aMedium: AMedium, callback: callable) -> 
         if _start.find(at_start) >= 0:
             print("at bp ")
             _bp = _end[:-len(at_end)].decode()
-            # dbgprint(f'decoded {_bp}')
-            # dbgprint(f'offset is {warduino.offset}')
             bp = hex(int(_bp , 16) - int(warduino.offset, 16))
             callback({'event': 'at bp', 'breakpoint': bp})
         else:
-            # print(f"error occured {_start} _end= {_end}")
-             #TODO hash error?
             start = time.monotonic()
             _dump = receive_dump(warduino, aMedium)
-            # print("received dhu")
-            # _locs = receive_locals(warduino, aMedium)
-            # print("received locs")
             _bytes = err_start + _end[:-len(b'\n')]
             _obj = json.loads(_bytes.decode())
             _event = {
@@ -302,6 +294,7 @@ def receive_events(warduino: WARDuino, aMedium: AMedium, callback: callable) -> 
                 'start_time': start,
                 'time':time
             }
+            _dump['session_size'] = _dump['session_size'] + len(_bytes) # TODO remove
             _event['execution_state'] = warduino_state_to_wa_state(_dump)
             callback(_event)
 
@@ -419,12 +412,14 @@ def receive_dump_helper(sock):
         print(f"failed for raw {json_bytes}")
         raise ValueError("something wrong")
 
+
     parsed = json.loads(dec)
     parsed['memory']['bytes'] = membytes
     parsed['table']['elements'] = bytes2int(elements)
     br_tbl = parsed['br_table']
     br_tbl['size'] = int(br_tbl['size'], 16)
     br_tbl['labels'] = bytes2int(labels)
+    parsed['session_size'] = len(json_bytes) # TODO remove
     return parsed
 
 
@@ -465,6 +460,7 @@ def warduino_state_to_wa_state(dump_json: dict) -> dict:
     state['br_table'] = dump_json['br_table']['labels']
     state['globals'] = dump_json['globals']
     state['stack'] =  [s for s in dump_json['stack']]
+    state['session_size'] = dump_json['session_size'] #TODO remove
 
     _frame_types = {
         0: 'fun',
