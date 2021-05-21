@@ -1,0 +1,11 @@
+arg=1,callstack=6,session_size=852
+arg=2,callstack=8,session_size=1043
+arg=4,callstack=12,session_size=1425
+arg=8,callstack=20,session_size=2189
+arg=16,callstack=36,session_size=3758
+arg=32,callstack=68,session_size=6910
+arg=64,callstack=132,session_size=13214
+arg=128,callstack=260,session_size=25792
+arg=256,callstack=516,session_size=51979
+arg=512,callstack=1028,session_size=103947
+arg=1024,callstack=2052,session_size=208032
