@@ -125,7 +125,7 @@ class Sockets(AMedium):
     #API
     def start_connection(self, dev) -> bool:
         #FIXME add try catch
-        dbgprint(f'connecting at {self.host} port {self.port}')
+        # dbgprint(f'connecting at {self.host} port {self.port}')
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         evsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -151,7 +151,6 @@ class Sockets(AMedium):
 
         replies = []
         for m in messages:
-            dbgprint(f'message {m.content}')
             self.__socket.send(m.content.encode())
             if m.has_reply():
                 r = m.get_reply(self.serializer, self)
