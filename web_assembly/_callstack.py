@@ -163,8 +163,11 @@ class CallStack:
 
     def print(self):
         s = ''
+        i = len(self.frames)
         for f in self.frames:
-            s = s + str(f) + '\n'
+            i-=1
+            fun = self.module.functions[f.fun_idx]
+            s = s + f'Frame(idx={i},name={fun.name},fun_id={fun.idx})' + '\n'
         print(s)
 
     def copy(self) -> CallStack:

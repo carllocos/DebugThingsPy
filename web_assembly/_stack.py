@@ -139,7 +139,7 @@ class Stack:
     def print(self):
         s = ''
         for v in self.__values:
-            s = s + str(v) + '\n'
+            s = f'StackValue(idx={v.idx},type={v.type},val={v.value})' + '\n' + s
         print(s)
 
     def copy(self) -> Stack:
