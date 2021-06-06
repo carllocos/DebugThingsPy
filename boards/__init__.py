@@ -1,11 +1,11 @@
 from ._m5stickc import M5StickC
-from ._warduino import WARDuino
+from ._wood import WOOD
 from .device import Device
 from .load import load_device
 
 __all__ =[
     'M5StickC',
-    'WARDuino',
+    'WOOD',
     'Device',
     'load_device',
 ]

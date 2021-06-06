@@ -39,7 +39,7 @@ Interrupts = {
 
 proxy_config = None
 
-class WARDuino(ASerial):
+class WOOD(ASerial):
     def __init__(self):
         super().__init__()
         self.__offset = None
@@ -96,13 +96,13 @@ class WARDuino(ASerial):
 
     #API
     def connect(self, event_handler: Union[None, callable] = None ) -> bool:
-        dbgprint("connecting...")
+        # dbgprint("connecting..."
         if not self.medium.connected:
             self.connected = self.medium.start_connection(self)
 
         if self.offset is None:
             self.offset = self.__ask_for_offset()
-            dbgprint(f"offset device {self.offset}")
+            # dbgprint(f"offset device {self.offset}")
 
         if self.uses_socket and self.__eventlistener is None:
             if event_handler is not None:
@@ -138,7 +138,7 @@ class WARDuino(ASerial):
         return self.medium.send(rmbp_msg)
 
     def add_breakpoint(self, addr: int) -> bool:
-        dbgprint(f'addr {addr} offset {self.offset}')
+        # dbgprint(f'addr {addr} offset {self.offset}')
         (size_hex, addr_hex) = bp_addr_helper(self.offset, addr)
         content = Interrupts['addbp'] + size_hex[2:] + addr_hex[2:] + '\n'
         addbp_msg = AMessage(content.upper(), receive_addbp)
@@ -210,7 +210,7 @@ class WARDuino(ASerial):
             dbgprint('new offset')
             self.offset = _dumpjson['start'][0]
 
-        return warduino_state_to_wa_state(_dumpjson)
+        return wood_state_to_wa_state(_dumpjson)
 
 
     # Helper methods
@@ -233,12 +233,12 @@ class WARDuino(ASerial):
 
     def receive_session(self, session: dict) -> bool:
         recv_int = Interrupts['receivesession']
-        warduino_state = wa_state_to_warduino_state(session, self.offset)
-        sers = encoder.serialize_session(warduino_state, recv_int, self.max_bytes)
+        wood_state = wa_state_to_wood_state(session, self.offset)
+        sers = encoder.serialize_session(wood_state, recv_int, self.max_bytes)
         msgs = []
         l = len(sers)
         for idx, content in enumerate(sers):
-            rpl = receive_done if (idx + 1) == l else receive_ack
+            rpl = receive_done_session if (idx + 1) == l else receive_ack
             msgs.append(AMessage(content + '\n', rpl))
 
         replies = self.medium.send(msgs)
@@ -258,7 +258,7 @@ class WARDuino(ASerial):
         return off
 
 # receive socket content functions
-def receive_events(warduino: WARDuino, aMedium: AMedium, callback: callable) -> None:
+def receive_events(wood: WOOD, aMedium: AMedium, callback: callable) -> None:
     import time #TODO remove
     at_start = b'AT '
     at_end = b'!\n'
@@ -274,18 +274,18 @@ def receive_events(warduino: WARDuino, aMedium: AMedium, callback: callable) -> 
         _end = aMedium.recv_until([at_end, err_end], event = True)
 
         if not aMedium.connected:
-            warduino.connected = False
+            wood.connected = False
             callback({'event': 'disconnection'})
             break
 
         if _start.find(at_start) >= 0:
-            print("at bp ")
+            # print("at bp ")
             _bp = _end[:-len(at_end)].decode()
-            bp = hex(int(_bp , 16) - int(warduino.offset, 16))
+            bp = hex(int(_bp , 16) - int(wood.offset, 16))
             callback({'event': 'at bp', 'breakpoint': bp})
         else:
             start = time.monotonic()
-            _dump = receive_dump(warduino, aMedium)
+            _dump = receive_dump(wood, aMedium)
             _bytes = err_start + _end[:-len(b'\n')]
             _obj = json.loads(_bytes.decode())
             _event = {
@@ -295,13 +295,13 @@ def receive_events(warduino: WARDuino, aMedium: AMedium, callback: callable) -> 
                 'time':time
             }
             _dump['session_size'] = _dump['session_size'] + len(_bytes) # TODO remove
-            _event['execution_state'] = warduino_state_to_wa_state(_dump)
+            _event['execution_state'] = wood_state_to_wa_state(_dump)
             callback(_event)
 
     dbgprint("stopping event thread")
-    warduino.stopEventThread()
+    wood.stopEventThread()
 
-def receive_offset(warduino, aMedium) -> str:
+def receive_offset(wood, aMedium) -> str:
     end = b'"}"\n'
     _noise = aMedium.recv_until(b'"offset":"')
     byts = aMedium.recv_until(end)[:-len(end)]
@@ -316,16 +316,16 @@ def receive_run_ack(_, sock):
     sock.recv_until(AnsProtocol['run'].encode())
     return True
 
-def receive_step_ack(warduino: WARDuino, medium: AMedium) -> None:
+def receive_step_ack(wood: WOOD, medium: AMedium) -> None:
     medium.recv_until(AnsProtocol['step'].encode())
     medium.recv_until(b'STEP DONE!\n')
 
-def receive_dump(warduino: WARDuino, aMedium: AMedium):
+def receive_dump(wood: WOOD, aMedium: AMedium):
     dump_json = receive_dump_helper(aMedium)
     return dump_json
 
 
-# def receive_locals(warduino: WARDuino, aMedium: AMedium):
+# def receive_locals(wood: wood, aMedium: AMedium):
 #     loc_json = receive_locals_helper(aMedium)
 #     return loc_json
 
@@ -336,7 +336,7 @@ def receive_dump(warduino: WARDuino, aMedium: AMedium):
 #     parsed = json.loads(byts)
 #     return parsed
 
-def receive_rmvbp(warduino, aMedium) -> bool:
+def receive_rmvbp(wood, aMedium) -> bool:
     dbgprint("receive rmvbp")
     bp_end = b'!\n'
     _ = aMedium.recv_until(b'BP ')
@@ -344,15 +344,14 @@ def receive_rmvbp(warduino, aMedium) -> bool:
     dbgprint(f"removed bp {bp_bytes.decode()}")
     return True
 
-def receive_addbp(warduino, aMedium) -> bool:
-    dbgprint("receive addbp")
+def receive_addbp(wood, aMedium) -> bool:
+    # dbgprint("receive addbp")
     bp_end = b'!\n'
     _ = aMedium.recv_until(b'BP ')
     bp_bytes = aMedium.recv_until(bp_end)[:-len(bp_end)]
-    dbgprint(f"added bp {bp_bytes.decode()}")
     return True
 
-def receive_until_ack(warduino, aMedium) -> bool:
+def receive_until_ack(wood, aMedium) -> bool:
     dbgprint("receive until pc")
     bp_end = b'!\n'
     _ = aMedium.recv_until(b'Until ')
@@ -361,23 +360,27 @@ def receive_until_ack(warduino, aMedium) -> bool:
     aMedium.recv_until(b'STEP DONE!\n')
     return True
 
-def receive_commitdone(warduino, aSocket) -> bool:
+def receive_commitdone(wood, aSocket) -> bool:
     aSocket.recv_until(until=b'restart done!\n')
     dbgprint("received commit done")
     return True
 
-def receive_ack(warduino, aMedium) -> bool:
+def receive_ack(wood, aMedium) -> bool:
     aMedium.recv_until(until=b'ack!\n')
     return True
 
-def receive_done(warduino, aMedium) -> bool:
+def receive_done(wood, aMedium) -> bool:
     aMedium.recv_until(until=b'done!\n')
     return True
 
-def receive_uploaddone(warduino, aMedium):
+def receive_done_session(wood, aMedium) -> bool:
+    aMedium.recv_until(until=b'done!\n')
+    return True
+
+def receive_uploaddone(wood, aMedium):
     global proxy_config 
     aMedium.recv_until(until=b'done!\n')
-    warduino.send_proxies(proxy_config)
+    wood.send_proxies(proxy_config)
     proxy_config = None
 
 def bytes2int(data):
@@ -438,7 +441,7 @@ def bp_addr_helper(offset, code_addr):
         _hex = '0x0' + _hex[2:]
     return (_hex, bp_addr)
 
-def warduino_state_to_wa_state(dump_json: dict) -> dict:
+def wood_state_to_wa_state(dump_json: dict) -> dict:
     offset = int(dump_json['start'][0], 16)
     state = {}
     state['pc'] = hex( int(dump_json['pc'], 16) - offset)
@@ -488,7 +491,7 @@ def warduino_state_to_wa_state(dump_json: dict) -> dict:
     return state
 
 
-def wa_state_to_warduino_state(_json: dict, offset: str) -> dict:
+def wa_state_to_wood_state(_json: dict, offset: str) -> dict:
     _offset = int(offset, 16)
     rebase = lambda addr : hex( int(addr, 16) + _offset)
 

@@ -4,9 +4,9 @@ from typing import Union, Any
 from interfaces import ASerial
 from boards import M5StickC
 from communication import Sockets, MCUSerial
-from boards import WARDuino
+from boards import WOOD
 
-class Device(WARDuino):
+class Device(WOOD):
 
     def __init__(self, config: dict) -> Device:
         super().__init__()
