@@ -53,6 +53,44 @@ def read_content(s: serial.Serial, c: bytes = b'\n'):
     r = s.read_until(c)
     return r
 
+# def step(s: serial.Serial):
+#     s.write('04'.encode())
+#     content = read_content(s)
+#     step_ack = content.decode()
+#     assert 'STEP' in step_ack
+
+def ask_debug_session():
+    #ask dump
+    print('asking for dump')
+    serial.write('10\n'.encode())
+    content = read_content(serial)
+    dump_ack = content.decode()
+    assert 'DUMP!' in dump_ack, f'GOT {dump_ack}'
+
+    print('waiting for dump content')
+    content = read_content(serial)
+    dump = content.decode()
+    assert 'start' in dump
+
+    ddump = json.loads(dump)
+    l = len(ddump['callstack'])
+    assert  l <= callstack_size, f'callstack size {callstack_size} > {l}'
+
+    #ask locals
+    print('asking for locals')
+    serial.write('11\n'.encode())
+    content = read_content(serial)
+    locs_ack = content.decode()
+    assert 'DUMP LOCALS' in locs_ack
+
+    content = read_content(serial)
+    content2 = read_content(serial)
+    locs = content.decode()
+    content2 = content2.decode()
+    assert 'count' in locs, f'got {locs}'
+    assert len(content2) == 2, f'got {content2} len={len(content2)}'
+    return dump,locs
+
 if __name__ == "__main__":
     port = None
     ports = [port.device for port in serial.tools.list_ports.comports()]
@@ -105,34 +143,45 @@ if __name__ == "__main__":
         print(f"at_bp_content {at_bp}")
         assert 'AT' in at_bp
 
-        #ask dump
-        print('asking for dump')
-        serial.write('10\n'.encode())
-        content = read_content(serial)
-        dump_ack = content.decode()
-        assert 'DUMP!' in dump_ack, f'GOT {dump_ack}'
-
-        print('waiting for dump content')
-        content = read_content(serial)
-        dump = content.decode()
-        assert 'start' in dump
-
-        ddump = json.loads(dump)
-        l = len(ddump['callstack'])
-        assert  l == callstack_size, f'callstack size {callstack_size} != {l}'
-
-        #ask locals
-        print('asking for locals')
-        serial.write('11\n'.encode())
-        content = read_content(serial)
-        locs_ack = content.decode()
-        assert 'DUMP LOCALS' in locs_ack
-
-        content = read_content(serial)
-        locs = content.decode()
-        assert 'count' in locs, f'got {locs}'
-
-        outputfile = 'decr_warduino_debugsession_sizes.txt'
+        outputfile = 'decr_warduino_debugsession_sizes_step.txt'
         f = open(outputfile , "a")
-        f.write(f'arg={arg},callstack={callstack_size},session_size={len(dump) + len(locs)}\n')
+        for i in range(11):
+            if i != 0:
+                #step
+                print(f"stepping #{i}")
+                serial.write('04\n'.encode())
+                # await_output(serial, 'STEP!')
+                content = read_content(serial)
+                step_ack = content.decode()
+                assert 'STEP' in step_ack, f'got {step_ack}'
+
+            dump, locs = ask_debug_session()
+            f.write(f'arg={arg},callstack={callstack_size},session_size={len(dump) + len(locs)}\n')
         f.close()
+
+        #ask dump
+        # print('asking for dump')
+        # serial.write('10\n'.encode())
+        # content = read_content(serial)
+        # dump_ack = content.decode()
+        # assert 'DUMP!' in dump_ack, f'GOT {dump_ack}'
+
+        # print('waiting for dump content')
+        # content = read_content(serial)
+        # dump = content.decode()
+        # assert 'start' in dump
+
+        # ddump = json.loads(dump)
+        # l = len(ddump['callstack'])
+        # assert  l == callstack_size, f'callstack size {callstack_size} != {l}'
+
+        # #ask locals
+        # print('asking for locals')
+        # serial.write('11\n'.encode())
+        # content = read_content(serial)
+        # locs_ack = content.decode()
+        # assert 'DUMP LOCALS' in locs_ack
+
+        # content = read_content(serial)
+        # locs = content.decode()
+        # assert 'count' in locs, f'got {locs}'
