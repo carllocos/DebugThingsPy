@@ -35,13 +35,24 @@
           (f32.const 0.0))))
 
 (func $avgTemp (type $voidtof32)
+    (local $sum f32)
     (global.get $sensorA)
     (call $getTemp)
     (global.get $sensorB)
     (call $getTemp)
     f32.add
-    (global.get $connected)
-    f32.div)
+    (local.set $sum)
+
+    (f32.eq 
+        (global.get $connected)
+        (f32.const 0))
+    (if (result f32)
+        (then
+            (f32.const 0.0))
+        (else 
+            (local.get $sum)
+            (global.get $connected)
+            f32.div)))
 
 
  (func $main (type $voidtovoid)
