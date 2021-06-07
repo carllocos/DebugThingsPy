@@ -4,9 +4,9 @@ from typing import Union, Any
 from interfaces import ASerial
 from boards import M5StickC
 from communication import Sockets, MCUSerial
-from boards import WOOD
+from boards import WOODManager
 
-class Device(WOOD):
+class Device(WOODManager):
 
     def __init__(self, config: dict) -> Device:
         super().__init__()

@@ -39,7 +39,7 @@ Interrupts = {
 
 proxy_config = None
 
-class WOOD(ASerial):
+class WOODManager(ASerial):
     def __init__(self):
         super().__init__()
         self.__offset = None
@@ -128,8 +128,7 @@ class WOOD(ASerial):
         for _ in range(amount):
             step_msg = AMessage(Interrupts['step'] + '\n', receive_step_ack)
             msgs.append(step_msg)
-        self.medium.send(msgs)
-        return self.get_execution_state()
+        return self.medium.send(msgs)
 
     def remove_breakpoint(self, addr: int) -> bool:
         (size_hex, addr_hex) = bp_addr_helper(self.offset, addr)
@@ -206,6 +205,7 @@ class WOOD(ASerial):
     def get_execution_state(self):
         dump_msg = AMessage(Interrupts['dump'] + '\n', receive_dump)
         _dumpjson = self.medium.send(dump_msg)
+        dbgprint(f'the dumpjson {_dumpjson}')
         if self.offset != _dumpjson['start'][0]:
             dbgprint('new offset')
             self.offset = _dumpjson['start'][0]
@@ -234,13 +234,16 @@ class WOOD(ASerial):
     def receive_session(self, session: dict) -> bool:
         recv_int = Interrupts['receivesession']
         wood_state = wa_state_to_wood_state(session, self.offset)
+        dbgprint(f"State to send {wood_state}")
         sers = encoder.serialize_session(wood_state, recv_int, self.max_bytes)
         msgs = []
         l = len(sers)
+        assert l >= 2, f'at least two expected got {l}'
         for idx, content in enumerate(sers):
             rpl = receive_done_session if (idx + 1) == l else receive_ack
             msgs.append(AMessage(content + '\n', rpl))
 
+        dbgprint(f"about to send #{len(msgs)}")
         replies = self.medium.send(msgs)
         return replies[-1]
 
@@ -258,7 +261,7 @@ class WOOD(ASerial):
         return off
 
 # receive socket content functions
-def receive_events(wood: WOOD, aMedium: AMedium, callback: callable) -> None:
+def receive_events(wood: WOODManager, aMedium: AMedium, callback: callable) -> None:
     import time #TODO remove
     at_start = b'AT '
     at_end = b'!\n'
@@ -285,7 +288,9 @@ def receive_events(wood: WOOD, aMedium: AMedium, callback: callable) -> None:
             callback({'event': 'at bp', 'breakpoint': bp})
         else:
             start = time.monotonic()
-            _dump = receive_dump(wood, aMedium)
+            _dump = receive_dump(wood, aMedium, ignore_prev_hash = False)
+            if _dump is None:
+                continue
             _bytes = err_start + _end[:-len(b'\n')]
             _obj = json.loads(_bytes.decode())
             _event = {
@@ -316,12 +321,14 @@ def receive_run_ack(_, sock):
     sock.recv_until(AnsProtocol['run'].encode())
     return True
 
-def receive_step_ack(wood: WOOD, medium: AMedium) -> None:
+def receive_step_ack(wood: WOODManager, medium: AMedium) -> bool:
     medium.recv_until(AnsProtocol['step'].encode())
-    medium.recv_until(b'STEP DONE!\n')
+    medium.recv_until(b'STEP DONE!\n', wait = False, timeout=True)
+    dbgprint("step done")
+    return True
 
-def receive_dump(wood: WOOD, aMedium: AMedium):
-    dump_json = receive_dump_helper(aMedium)
+def receive_dump(wood: WOODManager, aMedium: AMedium, ignore_prev_hash = True):
+    dump_json = receive_dump_helper(aMedium, ignore_prev_hash)
     return dump_json
 
 
@@ -375,6 +382,7 @@ def receive_done(wood, aMedium) -> bool:
 
 def receive_done_session(wood, aMedium) -> bool:
     aMedium.recv_until(until=b'done!\n')
+    dbgprint("done receiving sessions")
     return True
 
 def receive_uploaddone(wood, aMedium):
@@ -392,8 +400,10 @@ def bytes2int(data):
 
 # receive helper functions
 
+prev_h = 3
+def receive_dump_helper(sock, ignore_prev_hash = True):
+    global prev_h
 
-def receive_dump_helper(sock):
     _noise = sock.recv_until(b'DUMP!\n')
 
     raw_end = b']}'
@@ -416,6 +426,14 @@ def receive_dump_helper(sock):
         raise ValueError("something wrong")
 
 
+    if not ignore_prev_hash:
+        h = hash(json_bytes)
+        if prev_h == h:
+            dbgprint("Ignoring Received session")
+            return None
+        prev_h = h
+
+    dbgprint(f'bytes {dec}')
     parsed = json.loads(dec)
     parsed['memory']['bytes'] = membytes
     parsed['table']['elements'] = bytes2int(elements)
