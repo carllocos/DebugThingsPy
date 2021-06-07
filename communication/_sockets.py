@@ -7,6 +7,7 @@ import inspect
 import signal
 import sys
 import select
+import time
 
 from utils import dbgprint, errprint
 from interfaces import AMedium, AMessage
@@ -42,7 +43,11 @@ class SocketWrapper:
     def send(self, d):
         return self.socket.send(d)
 
-    def recv(self, d):
+    def recv(self, d, timeout = False):
+        if timeout:
+            deadline = time.time() + 3
+            self.socket.settimeout(deadline)
+
         return self.socket.recv(d)
 
     def add_bytes(self, b):
@@ -178,7 +183,7 @@ class Sockets(AMedium):
                 self.event_socket.close()
         return len(ready) > 0
 
-    def recv_until(self, until: Union[List[bytes], bytes], event:bool = False, wait: bool = True) -> bytes:
+    def recv_until(self, until: Union[List[bytes], bytes], event:bool = False, wait: bool = True, timeout: bool = False) -> bytes:
         aSocket =  self.event_socket if event else self.socket
         _untils = until
         if isinstance(until, bytes):
@@ -194,7 +199,7 @@ class Sockets(AMedium):
             if not aSocket.connected:
                 return b''
 
-            _bytes = aSocket.recv(self.recvbuff_size)
+            _bytes = aSocket.recv(self.recvbuff_size, timeout= timeout)
             if len(_bytes) == 0:
                 print("closing connection")
                 dbgprint("connection closed")
