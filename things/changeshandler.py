@@ -24,6 +24,10 @@ class ChangesHandler:
     def module(self) ->  WAModule:
         return self.__mod
 
+    @module.setter
+    def module(self, mod :WAModule) ->  WAModule:
+        self.__mod = mod
+
     def version(self, v: int)-> Union[DebugSession, None]:
         """
         version starts at 0, being the intial Sessionversion.

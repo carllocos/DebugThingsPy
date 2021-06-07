@@ -1,8 +1,9 @@
 from __future__ import annotations
+from logging import info
 from os import EX_DATAERR
 from typing import Union, List
 
-from utils import valid_addr, dbgprint, errprint
+from utils import valid_addr, dbgprint, errprint, infoprint
 from web_assembly import WAModule, Expr
 from things import ChangesHandler, DebugSession
 
@@ -59,6 +60,10 @@ class Debugger:
     def module(self) -> WAModule:
         return self.__wamodule
 
+    @module.setter
+    def module(self, mod: WAModule) -> WAModule:
+        self.__wamodule= mod
+
     @property
     def breakpoints(self) -> List[Expr]:
         return self.__breakpoints
@@ -70,9 +75,9 @@ class Debugger:
     def connect(self):
         c = self.device.connect(self.__handle_event)
         if not c:
-            dbgprint(f"connection failed to `{self.device.name}`")
+            infoprint(f"connection failed to `{self.device.name}`")
         else:
-            dbgprint(f'connected to `{self.device.name}`') 
+            infoprint(f'connected to `{self.device.name}`') 
 
         pc = self.__proxy_config
         if pc is not None and len(pc.get('proxy', [])) > 0:
@@ -102,7 +107,7 @@ class Debugger:
             return 
         # self.__update_session() #TODO uncomment
         if self.device.run():
-            dbgprint(f'device {self.device.name} is running')
+            infoprint(f'`{self.device.name}` is running')
         else:
             dbgprint(f'device {self.device.name} failed to run')
 
@@ -118,11 +123,12 @@ class Debugger:
             return 
 
         self.__update_session()
-        self.device.step(amount)
-        _json = self.device.get_execution_state()
-        _sess = DebugSession.from_json(_json, self.module, self.device)
-        self.changes_handler.add(_sess)
-        return _sess
+        if self.device.step(amount):
+            _json = self.device.get_execution_state()
+            _sess = DebugSession.from_json(_json, self.module, self.device)
+            self.changes_handler.add(_sess)
+            infoprint("stepped")
+            return _sess
 
     def step_over(self, expr: Union[Expr,DebugSession, None] = None) -> DebugSession:
         if not self.device.connected:
@@ -162,7 +168,8 @@ class Debugger:
         if isinstance(expr, int):
             [expr] = self.module.linenr(expr)
         if self.device.add_breakpoint(expr.addr):
-            dbgprint(f"added breakpoint at {expr}")
+            # infoprint(f"added breakpoint at {expr}")
+            infoprint(f"added breakpoint")
             self.breakpoints.append(expr.copy())
         else:
             dbgprint(f'failed to add breakpoint {expr}')
@@ -175,10 +182,10 @@ class Debugger:
             [inst] = self.module.linenr(inst)
 
         if self.device.remove_breakpoint(inst.addr):
-            dbgprint(f'breakpoint {inst} removed')
+            infoprint(f'breakpoint {inst} removed')
             self.breakpoints = list(filter(lambda i: i.addr != inst.addr, self.breakpoints))
         else:
-            dbgprint(f"could not remove breakpoint {inst}")
+            infoprint(f"could not remove breakpoint {inst}")
 
     def update_fun(self, code_info):
         pass
@@ -191,9 +198,12 @@ class Debugger:
         wasm = None
         if mod is not None:
             wasm = mod.compile()
+            self.module = mod
+            self.__changeshandler.module = mod
         else:
             wasm = self.__changeshandler.commit()
-        self.device.commit(wasm)
+        if self.device.commit(wasm):
+            infoprint('Module Updated')
 
 
     def validate_proxyconfig(self, mod: WAModule, config: dict) -> dict:
@@ -231,7 +241,7 @@ class Debugger:
         if proxy_config is not None:
             self.device.send_proxies(proxy_config)
         
-    def upload(self, mod: WAModule, config: dict) -> None:
+    def upload_module(self, mod: WAModule, config: dict) -> None:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
             return 
@@ -265,6 +275,7 @@ class Debugger:
             return 
 
         if debugsess.modified:
+            infoprint("Debug Session Modified")
             upd = debugsess.get_update()
             if not upd.valid:
                 dbgprint("invalid change")
@@ -273,9 +284,10 @@ class Debugger:
             debugsess = upd
 
         _json = debugsess.to_json()
-        _json['breakpoints'] = [ hex(bp.addr) for bp in self.breakpoints]
+        # _json['breakpoints'] = [ hex(bp.addr) for bp in self.breakpoints]
+        dbgprint(f"sending breakpoints {_json['breakpoints']}")
         if self.device.receive_session(_json):
-            dbgprint(f"`{self.device.name}` received debug session")
+            infoprint(f"`{self.device.name}` received debug session")
             self.debug_session()
 
     def add_proxyconfig(self, proxy_config: dict) -> None:
@@ -286,7 +298,7 @@ class Debugger:
     def __handle_event(self, event: dict) -> None:
         ev = event['event']
         if ev == 'at bp':
-            dbgprint(f"reached breakpoint {self.module.addr(event['breakpoint'])}")
+            infoprint(f"reached breakpoint {self.module.addr(event['breakpoint'])}")
             self.__reachedbp = True
             self.debug_session()
             if 'single-stop' in self.policies:
@@ -301,13 +313,11 @@ class Debugger:
                 self.remove_breakpoint(expr)
                 self.run()
 
-
         elif ev == 'disconnection':
             dbgprint(f'device {self.device.name} disconnected')
 
         elif ev == 'error':
-            print("error occured")
-            dbgprint(f'error occured at device {self.device.name}')
+            infoprint(f"error occured a device `{self.device.name}")
             _sess = DebugSession.from_json(event['execution_state'], self.module, self.device)
             _sess.exception = event['msg']
             end = event['time'].monotonic()

@@ -22,6 +22,7 @@ class DebugSession(object):
         self.__valid = None
         self.__version = None
         self.__pc_error = kwargs.get('pc_error', None)
+        self.__breakpoints= kwargs['breakpoints']
 
         #TODO remove
         self.__totalsize = kwargs.get('session_size', None)
@@ -31,6 +32,10 @@ class DebugSession(object):
         #TODO remove
         print(f'SESSION SIZE {self.__totalsize}')
         return self.__totalsize
+
+    @property
+    def breakpoints(self) -> List[str]:
+        return [ self.module.addr(bp) for bp in self.__breakpoints]
 
     @property
     def version(self) -> Union[int, None]:
@@ -174,6 +179,7 @@ class DebugSession(object):
             'table': tbl,
             'br_table': br_table,
             'globals': _globals,
+            'breakpoints': self.__breakpoints
         }
 
         return _json
@@ -201,7 +207,8 @@ class DebugSession(object):
             'table': tbl,
             'br_table': br_table,
             'globals': _globals,
-            'device': device
+            'device': device,
+            'breakpoints': _json['breakpoints'], 
         }
 
         if _json.get('pc_error', None) is not None:
