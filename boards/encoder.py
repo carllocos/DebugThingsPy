@@ -3,8 +3,7 @@ import sys
 import struct
 
 from utils import util
-
-DEBUG = False
+from utils import dbgprint, infoprint, errprint
 
 KINDS = {'pcState': '01',
          'bpsState': '02',
@@ -15,12 +14,12 @@ KINDS = {'pcState': '01',
          'brtblState': '07',
          'stackvalsState': '08'}
 
-def dbgprint(s):
-    curframe = inspect.currentframe()
-    calframe = inspect.getouterframes(curframe, 2)
-    cn =str(calframe[1][3])
-    if DEBUG:# and cn in ONLY:
-        print((cn + ':').upper(), s)
+# def dbgprint(s):
+#     curframe = inspect.currentframe()
+#     calframe = inspect.getouterframes(curframe, 2)
+#     cn =str(calframe[1][3])
+#     if DEBUG:# and cn in ONLY:
+#         print((cn + ':').upper(), s)
 
 def errprint(s):
     print(s)
@@ -50,17 +49,22 @@ def serialize_session(dssession, recv_int, max_bytes):
     #first recieve interrupt
     first_msg  = serialize_first_msg(dssession)
 
+    dbgprint(f"first message {first_msg}")
     chunks = [] 
 
     serialize_pc(dssession['pc'], chunks, max_space)
     serialize_breakpoints(dssession['breakpoints'], chunks, max_space)
     serialize_stackvalues(dssession['stack'], chunks, max_space)
     serialize_table(dssession['table'], chunks, max_space)
+    dbgprint(f"postTable {chunks}")
     serialize_callstack(dssession['callstack'], chunks, max_space)
     serialize_globals(dssession['globals'], chunks, max_space)
+    dbgprint(f"postgolbals {chunks}")
     serialize_memory(dssession['memory'], chunks, max_space)
+    dbgprint(f"postmem {chunks}")
     serialize_brtable(dssession['br_table'], chunks, max_space)
 
+    dbgprint(f"other msgs {chunks}")
     chunks.insert(0, first_msg)
     last = len(chunks) - 1
     ds_chunks = []
@@ -84,10 +88,11 @@ def serialize_session(dssession, recv_int, max_bytes):
 def serialize_pc(pc_addr, chunks, max_space):
     #TODO add padding to the pointer to make even chars
     #dbgprint(f"serialie_pc: {pc_addr}")
+    dbgprint(f"serialize {pc_addr}")
     kind = KINDS['pcState']
     (p, _) = serialize_pointer(pc_addr)
     pc_ser = kind + p 
-    #dbgprint(f"pc_ser - {kind} {p}")
+    dbgprint(f"pc_ser - {kind} {p}")
     add_in_chunks(chunks, pc_ser, max_space)
 
 #helper serializers
@@ -98,6 +103,7 @@ def serialize_first_msg(session):
     kind_globals = KINDS['globalsState']
     quantity_globals = int2bytes(len(gls), 4).hex()
     globals_ser = kind_globals + quantity_globals
+    dbgprint(f"serializeing globals {quantity_globals}")
 
     #Table
     tbl = session['table']
@@ -147,7 +153,7 @@ def make_evenaddr(addr):
         return "0" * chars_missing + noXo
 
 def serialize_breakpoints(bps, chunks, max_space):
-    #dbgprint(f'serializing bps {bps}')
+    dbgprint(f'serializing bps {bps}')
     kind = KINDS['bpsState']
     header_len = len(kind) + 2# 2 chars needed to express quantity of breakpoints
     current_chunk = chunks.pop(-1) if chunks and len(chunks[-1]) < max_space else ""
@@ -191,7 +197,7 @@ def serialize_stackValue(vobj):
         return t + v
 
 def serialize_stackvalues(vals, chunks, max_space):
-    #dbgprint(f'#{len(vals)} Stack Values to serialize MAX_space {max_space}')
+    dbgprint(f'#{len(vals)} Stack Values')
     kind = KINDS['stackvalsState']
     header_len = len(kind) + 4# 4 chars for quantity stack values
     current_chunk = chunks.pop(-1) if chunks and len(chunks[-1]) < max_space else ""
@@ -318,7 +324,7 @@ def serialize_table(tbl, chunks, max_space):
     #dbgprint(f'total chunks {len(chunks)}')
 
 def serialize_callstack(callstack, chunks, max_space):
-    #  dbgprint(f'serialzing #{len(callstack)} frames with max_space {max_space}')
+    dbgprint(f'serialzing #{len(callstack)} frames')
 
     kind = KINDS['callstackState']
     header_len = len(kind) + 4# 4 chars for quantity stack values
@@ -423,10 +429,12 @@ def serialize_memory(memory, chunks, max_space):
     # ------------------------------|
     #  1 byte |  4 bytes     | 4 bytes    |  bytes size = end offset - begin offset + 1 
     #| memory | begin offset | end offset | bytes  ...
-    #  dbgprint(f'serializing memory #{len(memory["bytes"])} bytes') #TODO replace total, with the use of pages
+    dbgprint(f'serializing memory #{len(memory["bytes"])} bytes') #TODO replace total, with the use of pages
     header_bytes = 9
     header_len =  header_bytes * 2
     memcell_len = 1 * 2 #1 byte per memory cell
+    if memory['pages'] == 0:
+        return
 
     current_chunk = ""
     if chunks and (len(chunks[-1]) + header_len + memcell_len ) <= max_space:
