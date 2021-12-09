@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Union, Dict
+from typing import List, Union, Dict
 from pathlib import PurePath
 import logging
 
@@ -76,6 +76,20 @@ class WAModule:
 
     def addr(self, addr: Union[str, int]) -> Union[Expr, None]:
         return self.codes.addr(addr)
+
+    ##TODO remove
+    def make_proxy_config(self, functions_2_proxy: List[str]) -> Dict:
+        fun_ids = []
+        for fun in functions_2_proxy:
+            cleaned_name = fun
+            ##TODO cleanup
+            if isinstance(fun, str) and fun[0] == '$':
+                cleaned_name = fun[1:]
+            f = self.functions[cleaned_name]
+            if f is None:
+                raise ValueError(f'Proxy error: proxy function `{fun}` is not declared in module')
+            fun_ids.append(f.idx)
+        return fun_ids
 
     # def copy(self) -> WAModule:
     #     _codes = self.codes.copy()
