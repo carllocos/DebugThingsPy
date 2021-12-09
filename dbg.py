@@ -26,7 +26,7 @@ def start_dbg(config: json):
     for c in filtered:
         d = load_device(c)
         deb = Debugger(d, mod)
-        deb.policies = c.get('policies', [])
+        deb.policies = c.get('policy', [])
         dbgs.append(deb)
 
     _loc = next((d for d in dbgs if d.device.is_local), None)
