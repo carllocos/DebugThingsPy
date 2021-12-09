@@ -1,7 +1,7 @@
 from __future__ import annotations
 from logging import info
 from os import EX_DATAERR
-from typing import Union, List
+from typing import Union, List, Dict
 
 from utils import valid_addr, dbgprint, errprint, infoprint
 from web_assembly import WAModule, Expr
@@ -35,6 +35,10 @@ class Debugger:
             f = open(self.__bench , "a")
             f.write(s)
             f.close()
+
+    @property
+    def proxy_config(self) -> Dict:
+        return self.__proxy_config
 
     @property
     def session(self) -> Union[None, DebugSession]:
@@ -209,15 +213,7 @@ class Debugger:
     def validate_proxyconfig(self, mod: WAModule, config: dict) -> dict:
         cleaned_config = {'proxy': [], 'host':None, 'port': None}
         if config.get('proxy', False):
-            for n in config['proxy']:
-                name = n
-                #FIXME temporary cleanedup
-                if isinstance(n, str) and n[0] == '$':
-                    name = n[1:]
-                f = mod.functions[name]
-                if f is None:
-                    raise ValueError(f'configuration error: proxy function `{name}` is not declared in module')
-                cleaned_config['proxy'].append(f.idx) 
+            cleaned_config['proxy'] = mod.make_proxy_config(config['proxy'])
 
         if config.get('host', False):
             if not valid_addr(config['host']):
@@ -231,7 +227,7 @@ class Debugger:
 
         return cleaned_config
 
-    def upload_proxies(self, proxy_config: Union[None, dict] = None) -> None:
+    def upload_proxies(self, proxy_config: Union[None, dict, List[str]] = None) -> None:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
             return 
@@ -239,16 +235,37 @@ class Debugger:
         if proxy_config is None:
             proxy_config = self.__proxy_config
         if proxy_config is not None:
-            self.device.send_proxies(proxy_config)
+            if isinstance(proxy_config, dict):
+                cleaned = self.validate_proxyconfig(self.module, proxy_config)
+                self.device.send_proxies(proxy_config)
+                self.__proxy_config = cleaned
+            elif isinstance(proxy_config, list):
+                config = {}
+                config['host'] = self.__proxy_config['host']
+                config['port'] = self.__proxy_config['port']
+                config['proxy'] = proxy_config
+                cleaned = self.validate_proxyconfig(self.module, config)
+                self.device.send_proxies(cleaned)
+                self.__proxy_config = cleaned
         
-    def upload_module(self, mod: WAModule, config: dict) -> None:
+    def upload_module(self, mod: WAModule, config: Union[dict, None] = None, proxy : Union[List[str], None] = None) -> None:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
             return 
 
+        if config is None and proxy is None:
+            return self.commit(mod)
+
+        if config is None:
+            config = {}
+            config['host'] = self.__proxy_config['host']
+            config['port'] = self.__proxy_config['port']
+            config['proxy'] = [] if proxy is None else proxy
+
         cleaned_config = self.validate_proxyconfig(mod, config)
         wasm = mod.compile()
         self.device.upload(wasm, cleaned_config)
+        self.__proxy_config = cleaned_config
 
 
     def debug_session(self):
@@ -302,7 +319,7 @@ class Debugger:
             self.__reachedbp = True
             self.debug_session()
             if 'single-stop' in self.policies:
-                dbgprint(f"applying `single-stop' policy to `{self.device.name}`")
+                infoprint(f"enforcing `single-stop' to `{self.device.name}`")
                 for bp in self.breakpoints:
                     self.remove_breakpoint(bp)
                 self.run()
