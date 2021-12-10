@@ -111,7 +111,7 @@ class WOODManager(ASerial):
             if self.__event_handler is None:
                 raise ValueError('configure an event_hanler')
 
-            self.__eventlistener = Thread(target=receive_events, args=(self, self.medium, self.__event_handler))
+            self.__eventlistener = Thread(target=receive_events, args=(self, self.medium, self.__event_handler), daemon=True)
             self.__eventlistener.start()
 
         return self.connected
