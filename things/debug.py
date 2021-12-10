@@ -197,7 +197,7 @@ class Debugger:
     def commit(self, mod: Union[WAModule, None] = None):
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
-            return 
+            return
 
         wasm = None
         if mod is not None:
@@ -251,7 +251,7 @@ class Debugger:
     def upload_module(self, mod: WAModule, config: Union[dict, None] = None, proxy : Union[List[str], None] = None) -> None:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
-            return 
+            return
 
         if config is None and proxy is None:
             return self.commit(mod)
@@ -286,6 +286,11 @@ class Debugger:
         self.changes_handler.add(_sess)
         return _sess
 
+    def restore_session(self, version_nr: int) -> None:
+        sess = self.__changeshandler.version(version_nr)
+        if sess is not None:
+            self.receive_session(sess)
+
     def receive_session(self, debugsess: DebugSession) -> None:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
@@ -296,7 +301,7 @@ class Debugger:
             upd = debugsess.get_update()
             if not upd.valid:
                 dbgprint("invalid change")
-                return 
+                return
             self.changes_handler.add(upd)
             debugsess = upd
 
