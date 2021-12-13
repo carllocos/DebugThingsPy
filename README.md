@@ -7,8 +7,8 @@ Similar to out-of-place, it supports local debugging of a remote application by 
 ## Setup
 
 To use the debugger we need to:
-- Compile and execute WOOD locally. The program that runs locally could be anything given that we can change it dynamically later on.
-- Flash WOOD alongside the application to debug on the remote ESP32. Similarly we can flash any Wasm application since we can update the Wasm app dynamically.
+- Compile and execute WOOD locally. The application that runs locally is preferabely the one that also runs remotely and thus needs debugging. If the application is not the one that needs debugging, you can always use the upload functionality of the debugger to change it to the one that needs debugging. Once started local WOOD will start a in pause mode and start listening for incoming socket connections at port 8080.
+- Flash WOOD alongside the application to debug on the remote ESP32. Similarly we can start from a Wasm application that does not need debugging and update app dynamically by means of the upload functionality. Once started WOOD will execute the provided application and start listening for incoming socket connection at port nr 80. 
 - Create a JSON configuration file named *.dbgconfig.json* with the following content:
 ````
  {
@@ -43,7 +43,7 @@ To use the debugger we need to:
   -  *enable*: enables or disables the debugging of the device. will be removed in the future.
   -  *serial*: the serial address of the device. Currently not supported.
   -  *policy*: configures the debugger on how to behave once a breakpoint is reached on the corresponding device. Possible values:
-     -   *single-stop*: the Debugger Manager retrieves a debug session from the target application only for the first breakpoint that is reached. Once the debug session is retrieved, the debugger removes all the breakpoints (including the one that got reached) and resumes the execution of the application.
+     -   *single-stop*: the Debugger retrieves a debug session from the target application only for the first breakpoint that is reached. Once the debug session is retrieved, the debugger removes all the breakpoints (including the one that got reached) and resumes the execution of the application.
      -   *remove-and-proceed*: the debugger retrieves a debug session at each breakpoint. Once retrieved it also 1) removes the reached breakpoint and 2) resumes the application execution.
      -   *default*: the debugger retrieves the execution at each breakpoint, does not remove any breakpoint and leaves the application paused. Note that there is no need to write this value in the debug configuration file since it is the default behaviour.
 
@@ -56,7 +56,7 @@ To start the debugger run *dbg.py* in interactive mode ``python3.8 -i dbg.py``.
 
 ```c
 
-# Debugging Factorial 
+# Debugging examples/fac.wast 
 
 python3.8 -i dbg.py
 > loc # local VM
@@ -95,37 +95,138 @@ python3.8 -i dbg.py
 > loc.run() # Led will blink on remote device :)
 ```
 
-## Debugger API
+## Documentation
+### Debugger API
 
- - connect(): connects debugger to VM
- - run() : runs VM
- - step(): step to next instruction
- - step_ove(): steps over
- - add_breapkpoint(linenr) :  places a breakpoint at given line number
- - remove_breakpoint(linenr) :  remove a breakpoint at given line number
- - session: gives the debug session (generated only after reaching a breakpoint)
- - module : access to Wasm module being debugged
+The API available to the *loc* and *rmt* Debugger objects.
 
- - upload_proxies(list of strings) : takes a list of functions names that need proxying.
+ - `connect() -> None`: connects the debugger to VM using the *port* number and *host* from the config file.
+ - `run() -> None`: runs the VM.
 
- - upload_module(WAModule):  upload the WAModule to the device. This allows to dynamically change Wasm to execute on the VM
+ - `step(amount: int = 1) -> DebugSession`: step to the next instruction. You can also step more than once by changing *amount*.
 
-- receive_session(a Debugsession): send a debug session (instance of DebugSession) to the VM
+ - `step_over() -> DebugSession`: steps over and returns the new debug session which we also use to update the *session* property.
 
-Example
+ - `add_breapkpoint(expr: Union[Expr, int]) -> None`: if *expr* is a Wasm instruction, it places a breakpoint at that particular instruction. If *expr* is an integer, then the debugger places a breakpoint at the first instruction available at that line number in the *module*.
 
-```c
-> rmt.connect()
-> instructions = rmt.module.linenr(38)
-> post_fac_call = instructions[0]
-> rmt.add_breakpoint(post_fac_call)
-> rmt.session.callstack.print()
-> rmt.session.stack.print()
+ - `remove_breakpoint(inst: Union[Expr, int]) -> None`: If *instr* is an *Expr*, it removes the breakpoint set at that Wasm instruction. If *inst* is an integer, it removes a breakpoint set at line number *inst*. If more that one instruction is available at the line number, it removes the breakpoint set on the outerst instruction.
 
-> rmt.run() # resumes 
 
-```
+ - `session -> Union[None, DebugSession]`: a property that gives access to the current debug session. The session is avalaible only after reaching a breakpoint or after a call to *debug_session()*. Otherwise the property is set to *None*.
+ 
+ - `module -> WAModule`: a property that gives access to Wasm module pointed by *program* value in the JSON config. This module is the Wasm application that is currently available on the device.
 
+ - `upload_proxies(proxy: Union[None, List[str]) = None) -> None:` only for local VM. It provides the local VM a list of function names that needs proxying i.e. when local VM encounters a function call to any of those function names it performs a remote function invocation instead of executing the call locally. An exception is raised if any of the function names do not correspond with functions defined in the *module* property.
+
+ - `upload_module(mod: WAModule, proxy: Union[List[str], None]= None) -> None`: upload the WAModule to the device and remote call the functions provided by the *proxy* list. This method allows to dynamically change the Wasm application that executes on the VM.
+
+- `receive_session(debugsess: Debugsession) -> None`: send a debug session to the VM.
+
+- `debug_session() -> DebugSession:` forces the retrieval of a debug session on the device. After completion of the method call, the device is left in a paused state and the debug session is made available on the *session* property.
+
+- `restore_session(version_nr:int) -> Union[DebugSession, None]:` a method that allows to go back in time. It restores the current debug session on the VM to the given *version_nr*. If such version number does not exist it returns *None* otherwise it returns the restored *Debugsession*.
+
+<br>
+
+### WAModule API
+
+The API availalbe for WAModule objects (web_assembly/wamodule.py).
+
+-  `types() -> Types`: property that gives access to a *Types object* (web_assembly/types.py). A Types object corresponds with the types component of a module. 
+  ```c
+     > fac_mod = WAModule.from_file('examples/fac.wast')
+     > types = fac_mod.types
+     > types.start # start address of the types component
+     > types.end # end address of the types component
+     > types[0]  # first type definition in types component
+     ['i32'] -> None
+     > types['$i32toi32']  # type definition with name '$i32toi32'
+     ['i32'] -> i32
+  ```
+- `functions() -> Functions`: proprety that gives access to a *Functions* object (web_assembly/func.py). Corresponds with the functions component defined in the module.
+  ```c
+     > fac_mod = WAModule.from_file('examples/fac.wast')
+     > funcs = fac_mod.functions
+     > funcs.start # start address of the types component
+     > funcs.end # end address of the types component
+     > funcs[0]  # first function definition in functions component.
+     > fac = funcs['$fac']  # function object with name '$fac'
+     > fac.idx # id of function in module
+     > fac.name # name of function in module
+     > fac.code # a *Code object* that corresponds with the code section of the function in the module.
+     > fac.locals # List of *Local objects* that corresponds with the variables defined in the function.
+     > funcs.exports # list of functions in the module marked as export
+     > funcs.imports # list of functions in the module marked as import
+     ['i32'] -> i32
+  ```
+
+-  `exports() -> List[Function]`: retuns a list of the Funtion objects (web_assembly/func.py) that are defined in the module and marked as export.
+
+-  `imports() -> List[Function]`: retuns a list of the Funtion objects (web_assembly/func.py) that are defined in the module and marked as import.
+
+- `filepath(self) -> Union[str, None]`: path to the source file used to generate the WAModule object.
+    def linenr(self, nr: int):
+
+-  `addr(addr: Union[str, int]) -> Union[Expr, None]`:
+
+- `compile() -> bytes`: compile the current wast source file into bytes using *wabt*.
+
+
+- `codes(self) -> Codes`: a *Codes* objects that provides access to code section of the module. For each function we also forsee a *Code* object.
+ ```c
+     > fac_mod = WAModule.from_file('examples/fac.wast')
+     > codes = fac_mod.codes
+     > codes['0x52']  # instruction at hexa address '0x52'
+      <line 26 (0x5e): call>
+     > codes[94] # same as before but with integer
+     > fac_body = codes[1]  # code section of function with ID 1
+     > assert fac_body['0x52'] == codes['0x52']
+     > codes.linenr(34) # instructions at linenr 34
+     > fac_body.linenr(27)
+     > fac_body.expressions # list of all expressions in the body of the function
+     > fac_body.exp_type('i32.const') # list of all the expressions of type 'i32.const' in the function.
+     > fac_body.next_instruction(fac_body['0x52']) # the instruction that follow the argument instruction in the code section.
+  ```
+
+- `from_file(path: str, out: Union[str, None] = None) -> WAModule`: static method that generates a WAModule from a wast source file pointed by *path*. The *out* argument specifies a location where files generated for the source can be temporary stored. If not provided, the *out* of the JSON config is used instead.
+
+
+<br>
+
+### DebugSession API
+
+The API avaible for *DebugSession* objects (things/debug_session.py).
+
+
+- `breakpoints() -> List[str]`: list of hexa addresses where a breakpoint has been set on the VM.
+
+-  `version() -> Union[int, None]`: the version number of the session. Initialy set to zero when the first debug session is retrieved. Each operation that affects a debug session i.e. the execution and application state (e.g. step) will increase the number.
+
+- `pc_error() -> Union[Expr, None]`: the instruction address that caused the an exception on the VM or caused the VM to restart. Is updated at each newly exception or restart.
+
+- `exception() -> Union[str, None]`: the exception messages raised by the VM when an exception got raised. This value is only set if the debugger was connected to the VM at the moment the exception occured.
+    
+- `module() -> WAModule`: the module to which the debug session belongs to.
+
+- `callstack() -> CallStack`: a property that gives access to a CallStack object that represents the callstack of the VM.
+
+- 'stack() -> Stack': a property that gives access to a Stack object that represents the stack of values in the VM.
+
+- `memory() -> Memory`: access to the memory pages used in the Wasm app.
+
+- `table() -> Table`: access to the table used in the Wasm app.
+
+- `br_table()) -> List[int]:` the table of values used by branching instructions (e.g. br).
+
+- `globals() -> Globals`: access to the global variables/values used in the Wasm app.
+
+- `pc() -> Union[Expr, None]`: the position of the program counter
+
+-  `modified(self) -> bool`: checks if this debug session version got modified since the retrieval.
+
+-  `to_json(self) -> dict`: shoul be changed. Returns a dictionary of the current debug session and thus not a JSON.
+
+- `from_json(_json: dict, module: WAModule, device: Device) -> DebugSession`: should be called *from_dict* generates a DebugSession object from a dictionary.
 
 
 ## TODO's
@@ -133,3 +234,5 @@ Example
 - Logger
 - Add tests
 - Make the debugger a command line tool.
+- Discover mode
+- Allow manual changes on the debug session
