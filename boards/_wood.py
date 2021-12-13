@@ -19,7 +19,8 @@ AnsProtocol = {
     'receivesession': '22',
     'rmvbp': '07',
     'run': 'GO!\n',
-    'step': 'STEP!\n'
+    'step': 'STEP!\n',
+    'pause': 'PAUSE!\n'
 }
 
 
@@ -35,6 +36,7 @@ Interrupts = {
     'step': '04',
     'until': '05',
     'updateModule' : '24',
+    'pause': '03'
 }
 
 proxy_config = None
@@ -120,8 +122,11 @@ class WOODManager(ASerial):
         run_msg = AMessage(Interrupts['run'] + '\n', receive_run_ack)
         return self.medium.send(run_msg)
 
-    def pause(self, state):
-        raise NotImplementedError
+    def pause(self):
+        pause_msg = AMessage(Interrupts['pause'] + '\n', receive_ack_pause)
+        return self.medium.send(pause_msg)
+
+
 
     def step(self, amount = 1):
         msgs = []
@@ -319,6 +324,10 @@ def receive_initstep_run(_, sock):
 
 def receive_run_ack(_, sock):
     sock.recv_until(AnsProtocol['run'].encode())
+    return True
+
+def receive_ack_pause(_, sock):
+    sock.recv_until(AnsProtocol['pause'].encode())
     return True
 
 def receive_step_ack(wood: WOODManager, medium: AMedium) -> bool:
