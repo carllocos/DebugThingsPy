@@ -28,13 +28,13 @@ class Debugger:
     def bench_name(self, n:str) -> None:
         self.__bench = n
 
-    def register_measure(self, tstart, tend, sess):
-        s = f"time:{tend - tstart},callstack:{len(sess.callstack.all_frames)},stack:{len(sess.stack)}\n"
-        # print(s)
-        if self.__bench != '':
-            f = open(self.__bench , "a")
-            f.write(s)
-            f.close()
+    # def register_measure(self, tstart, tend, sess):
+    #     s = f"time:{tend - tstart},callstack:{len(sess.callstack.all_frames)},stack:{len(sess.stack)}\n"
+    #     # print(s)
+    #     if self.__bench != '':
+    #         f = open(self.__bench , "a")
+    #         f.write(s)
+    #         f.close()
 
     @property
     def proxy_config(self) -> Dict:
@@ -121,7 +121,7 @@ class Debugger:
         # _msgs = self.__serializer.run(state)
         # self.__medium.send(_msgs, self.__device)
 
-    def step(self, amount = 1) -> DebugSession:
+    def step(self, amount: int = 1) -> DebugSession:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
             return 
@@ -227,23 +227,23 @@ class Debugger:
 
         return cleaned_config
 
-    def upload_proxies(self, proxy_config: Union[None, dict, List[str]] = None) -> None:
+    def upload_proxies(self, proxy: Union[None, dict, List[str]] = None) -> None:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
-            return 
+            return
 
-        if proxy_config is None:
-            proxy_config = self.__proxy_config
-        if proxy_config is not None:
-            if isinstance(proxy_config, dict):
-                cleaned = self.validate_proxyconfig(self.module, proxy_config)
-                self.device.send_proxies(proxy_config)
+        if proxy is None:
+            proxy = self.__proxy_config
+        if proxy is not None:
+            if isinstance(proxy, dict):
+                cleaned = self.validate_proxyconfig(self.module, proxy)
+                self.device.send_proxies(proxy)
                 self.__proxy_config = cleaned
-            elif isinstance(proxy_config, list):
+            elif isinstance(proxy, list):
                 config = {}
                 config['host'] = self.__proxy_config['host']
                 config['port'] = self.__proxy_config['port']
-                config['proxy'] = proxy_config
+                config['proxy'] = proxy
                 cleaned = self.validate_proxyconfig(self.module, config)
                 self.device.send_proxies(cleaned)
                 self.__proxy_config = cleaned
@@ -268,15 +268,15 @@ class Debugger:
         self.__proxy_config = cleaned_config
 
 
-    def debug_session(self):
+    def debug_session(self) -> DebugSession:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
             return 
-        starttime = time.monotonic()
+        # starttime = time.monotonic()
         _json = self.device.get_execution_state()
         _sess = DebugSession.from_json(_json, self.module, self.device)
-        end2 = time.monotonic()
-        self.register_measure(starttime, end2, _sess)
+        # end2 = time.monotonic()
+        # self.register_measure(starttime, end2, _sess)
         # s = f"time:{end2 - starttime},callstack:{len(_sess.callstack.all_frames)},stack:{len(_sess.stack)}\n"
         # print(s)
         # f = open(self.__bench , "a")
@@ -286,10 +286,11 @@ class Debugger:
         self.changes_handler.add(_sess)
         return _sess
 
-    def restore_session(self, version_nr: int) -> None:
+    def restore_session(self, version_nr: int) -> Union[DebugSession, None]:
         sess = self.__changeshandler.version(version_nr)
         if sess is not None:
             self.receive_session(sess)
+        return sess
 
     def receive_session(self, debugsess: DebugSession) -> None:
         if not self.device.connected:
@@ -342,8 +343,8 @@ class Debugger:
             infoprint(f"error occured a device `{self.device.name}")
             _sess = DebugSession.from_json(event['execution_state'], self.module, self.device)
             _sess.exception = event['msg']
-            end = event['time'].monotonic()
-            self.register_measure(event['start_time'], end, _sess)
+            # end = event['time'].monotonic()
+            # self.register_measure(event['start_time'], end, _sess)
             self.changes_handler.add(_sess)
         else:
             errprint('not understood event occurred')
