@@ -126,10 +126,11 @@ class Codes:
         return self.__codes
     
     def __getitem__(self, key: Any) -> Union[Code, None]:
+        if isinstance(key, str):
+            key = int(key, 16)
         if isinstance(key, int):
             return next((c for c in self.codes if c.func_idx == key), None)
-        else:
-            raise ValueError(f'incorrect key expecting an int')
+        raise ValueError('incorrect key expecting an int')
 
     def addr(self, addr):
         i = None
