@@ -115,11 +115,15 @@ class Debugger:
         else:
             dbgprint(f'device {self.device.name} failed to run')
 
-    def pause(self, code_info):
-        print("received paused request")
-        # state = State(self.__device, code_info)
-        # _msgs = self.__serializer.run(state)
-        # self.__medium.send(_msgs, self.__device)
+    def pause(self) -> None:
+        #TODO ask for debug session
+        if not self.device.connected:
+            dbgprint(f'First connect to {self.device.name}')
+            return
+        if self.device.pause():
+            infoprint(f'`{self.device.name}` is paused')
+        else:
+            dbgprint(f'device {self.device.name} failed to pause')
 
     def step(self, amount: int = 1) -> DebugSession:
         if not self.device.connected:
