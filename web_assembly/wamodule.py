@@ -4,7 +4,7 @@ from pathlib import PurePath
 import logging
 
 from utils import wat2wasm
-from web_assembly import Functions, Types, Type, Codes, Expr
+from web_assembly import Function, Functions, Types, Type, Codes, Expr
 from web_assembly import generate_dbginfo, load_module_details, DBGInfo
 
 
@@ -36,11 +36,11 @@ class WAModule:
         return self.__funcs
 
     @property
-    def exports(self) -> Functions:
+    def exports(self) -> List[Function]:
         return self.__funcs.exports
 
     @property
-    def imports(self) -> Functions:
+    def imports(self) -> List[Function]:
         return self.__funcs.imports
 
     @property
@@ -108,8 +108,8 @@ class WAModule:
         _bytes = wat2wasm(fp, fn, out)
         return _bytes
 
-    @classmethod
-    def from_file(cls, path: str, out: Union[str, None] = None) -> WAModule:
+    @staticmethod
+    def from_file(path: str, out: Union[str, None] = None) -> WAModule:
         dbg_info = generate_dbginfo(path, out)
         wm = WAModule.from_dbginfo(dbg_info)
         wm.filepath = path
@@ -119,10 +119,10 @@ class WAModule:
 
         return wm
 
-    @classmethod
-    def from_dbginfo(csl, dbg_info: DBGInfo) -> WAModule:
+    @staticmethod
+    def from_dbginfo(dbg_info: DBGInfo) -> WAModule:
         types = Types.from_dbg(dbg_info)
         codes = Codes.from_dbg(dbg_info)
         funcs = Functions.from_dbg(dbg_info, codes, types)
-        return csl(types, funcs, codes)
+        return WAModule(types, funcs, codes)
 
