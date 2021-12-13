@@ -2,7 +2,7 @@ from .util import load_sections_info, load_module_details, SectionDetails, Modul
 from ._const import ConstValue
 from .code import Codes, Code, Expr
 from .types import Type, Types
-from .func import Functions #, Function
+from .func import Functions, Function
 from .wamodule import WAModule
 
 from ._memory import Memory, Memories
@@ -28,7 +28,7 @@ _all__ = [
     'make_fun',
     'Code',
     'Codes',
-    # 'Function',
+    'Function',
     'Functions',
     'Table',
     'Tables',
