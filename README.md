@@ -71,8 +71,8 @@ python3.8 -i dbg.py
 <web_assembly.wamodule.WAModule object at 0x7f2b2ad42460>
 > rmt.module.linenr(30) # list of instr at line 30
 [<line 30 (0x7b): i32.const>]
-> [else_line] = rmt.module.linenr(30)
-> rmt.addbreakpoint(else_line) # adding bp at line 30
+> [else_instr] = rmt.module.linenr(30)
+> rmt.addbreakpoint(else_instr) # adding bp at line 30
 [INFO] added breakpoint
 [INFO] reached breakpoint <line 30 (0x64): i32.const>
 > loc.receive_session(rmt.session) # bringing session to local device
@@ -84,12 +84,15 @@ python3.8 -i dbg.py
 [INFO] `local` received debug session
 
 
-# Uploading Wasm & performing Remote Function Calls
+# Uploading examples/blinkled.wast & performing Remote Function Calls for on and off functions
+# blinkled app turns on and off a led connected on pin 26
 
 > from web_assembly import WAModule
 > blinkled_app = WAModule.from_file('examples/blinkled.wast')
 > rmt.upload_module(blink_app) # upload dynamically a new Wasm to the remote device
 [INFO] Module Updated
+> rmt.pause() # pauses the execution on the remote VM. This leaves the led on or off.
+[INFO] `remote` is paused
 > loc.upload_module(blinkled_app, proxy=['$on', '$off']) # upload to local device and proxy 'on' and 'off' functions
 [INFO] Module Updated
 > loc.run() # Led will blink on remote device :)
@@ -102,6 +105,8 @@ The API available to the *loc* and *rmt* Debugger objects.
 
  - `connect() -> None`: connects the debugger to VM using the *port* number and *host* from the config file.
  - `run() -> None`: runs the VM.
+
+- `pause() -> None`: pauses the execution on the VM.
 
  - `step(amount: int = 1) -> DebugSession`: step to the next instruction. You can also step more than once by changing *amount*.
 
