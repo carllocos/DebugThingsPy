@@ -5,6 +5,8 @@ from web_assembly import DBGInfo, SectionDetails, ModuleDetails
 Parameters = List[str]
 Results = List[str]
 
+# TODO: get type signature based on name
+
 class Type:
     def __init__(self, idx: int, params: Parameters, results: Results, name: Union[str, None]):
         self.__params = params
@@ -71,7 +73,7 @@ class Types:
     def end(self):
         return self.__end
 
-    def aslist(self):
+    def aslist(self) -> List[Type]:
         return self.__all
 
     def copy(self):

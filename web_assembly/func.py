@@ -53,12 +53,24 @@ class Functions:
         self.__funcs = funcs
         self.__str2funcs = str2funcs
         self.__int2funcs = int2funcs
+        self.__start = start
+        self.__end = end
      
     def __getitem__(self, key: Any) -> Function:
         if isinstance(key, str):
+            if key[0] == '$':
+                return self.__str2funcs.get(key[1:], None)
             return self.__str2funcs.get(key, None)
-        else:
-            return self.__int2funcs.get(key, None)
+        return self.__int2funcs.get(key, None)
+
+
+    @property
+    def start(self) -> int:
+        return self.__start
+
+    @property
+    def end(self) -> int:
+        return self.__end
 
     @property
     def exports(self) -> List[Function]:
