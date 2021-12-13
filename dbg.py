@@ -31,7 +31,7 @@ def start_dbg(config: json):
 
     _loc = next((d for d in dbgs if d.device.is_local), None)
     _rmt = next((d for d in dbgs if d.device.is_remote), None)
-    if _loc is not None and config.get('proxy', False):
+    if _loc is not None:
         if _rmt is None:
             raise ValueError(f'configuration error: function proxy requires a remote device. Enable a remote device')
         proxy_config = {}
