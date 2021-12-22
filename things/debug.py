@@ -76,7 +76,7 @@ class Debugger:
     def breakpoints(self, nb: List[Expr]) -> None:
         self.__breakpoints = nb
 
-    def connect(self):
+    def connect(self, upload_proxies = False):
         c = self.device.connect(self.__handle_event)
         if not c:
             infoprint(f"connection failed to `{self.device.name}`")
@@ -85,7 +85,8 @@ class Debugger:
 
         pc = self.__proxy_config
         if pc is not None and len(pc.get('proxy', [])) > 0:
-            self.device.send_proxies(pc)
+            if upload_proxies:
+                self.device.send_proxies(pc)
 
         if self.device.is_local:
             pass
