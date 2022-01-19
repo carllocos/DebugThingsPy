@@ -452,8 +452,20 @@ def receive_dump_helper(sock, ignore_prev_hash = True):
     parsed['session_size'] = len(json_bytes) # TODO remove
     return parsed
 
-
 def bp_addr_helper(offset, code_addr):
+    all_bp_addr = util.sum_hexs([offset, code_addr])  # remove '0x'
+    bp_addr = all_bp_addr
+    if len(all_bp_addr[2:]) % 2 != 0:
+        missing_chars = len(all_bp_addr[2:]) % 2
+        bp_addr = "0x" + ( missing_chars * '0') + all_bp_addr[2:]
+
+    amount_bytes = int(len(bp_addr[2:]) / 2)
+    _hex = hex(amount_bytes)
+    if int(_hex[2:], 16) < 16:
+        _hex = '0x0' + _hex[2:]
+    return (_hex, bp_addr)
+
+def old_bp_addr_helper(offset, code_addr):
     bp_addr = util.sum_hexs([offset, code_addr])  # remove '0x'
     amount_chars = math.floor(len(bp_addr[2:]) / 2)
     if amount_chars % 2 != 0:
@@ -467,7 +479,6 @@ def bp_addr_helper(offset, code_addr):
     if int(_hex[2:], 16) < 16:
         _hex = '0x0' + _hex[2:]
     return (_hex, bp_addr)
-
 def wood_state_to_wa_state(dump_json: dict) -> dict:
     offset = int(dump_json['start'][0], 16)
     state = {}
