@@ -6,6 +6,9 @@ from pathlib import PurePath
 import shutil
 
 #TODO security!!!!!
+
+WABT_BUILD = "c_libs/wabt/build/"
+
 def wat2wasm(file: Union[str, PurePath], out_filename: Union[str, PurePath], des: Union[str, PurePath, None] = '') -> bytes:
 
     srcfile = PurePath(file) if isinstance(file, str) else file
@@ -37,6 +40,7 @@ def wat2wasm(file: Union[str, PurePath], out_filename: Union[str, PurePath], des
 
 
 def wasm_sourcemaps(src: PurePath, out: PurePath) -> None:
+    global WABT_BUILD
     no_ext_name = src.name.split('.')[0]
     wasm_path = out.joinpath(no_ext_name + '.dbg.wasm')
     headers_path = out.joinpath(no_ext_name + '.dbg.headers')
@@ -45,17 +49,17 @@ def wasm_sourcemaps(src: PurePath, out: PurePath) -> None:
 
     #make directory if needed first
     _make_parentsdir(wasm_path)
-    comp2wasm  = f'c_libs/wabt/build/./wat2wasm --debug-names -v {src} -o {wasm_path} > {srcmap_path}'
+    comp2wasm  = f'{WABT_BUILD}./wat2wasm --debug-names -v {src} -o {wasm_path} > {srcmap_path}'
     if os.system(comp2wasm) != 0:
         print(f'error in {comp2wasm}')
         return
 
-    wasm2headers = f'wasm-objdump {wasm_path} -h > {headers_path}'
+    wasm2headers = f'{WABT_BUILD}./wasm-objdump {wasm_path} -h > {headers_path}'
     if os.system(wasm2headers) != 0:
         print(f'error in {wasm2headers}')
         return
 
-    wasm2details = f'wasm-objdump {wasm_path} -x > {details_path}'
+    wasm2details = f'{WABT_BUILD}./wasm-objdump {wasm_path} -x > {details_path}'
     if os.system(wasm2details) != 0:
         print(f'error in {wasm2details}')
         return
