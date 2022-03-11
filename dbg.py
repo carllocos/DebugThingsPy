@@ -108,60 +108,64 @@ def accurate_size(arg):
         'stack_hex': hex(vals)
     }
 
-def benchmark_sizes(arg):
+def benchmark_experiment3(arg):
+    import os
     import time
 
     dev = rmt
     dev.connect()
-    [i] = mod.linenr(28)
+    [i] = mod.linenr(27)
     dev.add_breakpoint(i)
     dev.run()
 
     while dev.session is None:
-        print("sleeping 0.5secs")
+        print('waiting until bp is reached...')
         time.sleep(0.5)
 
-    outputfile = 'decr_debugsession_sizes.txt'
+    outputfile = 'decr_debugsession_sizes.csv'
     callstack_size = 2 * (arg + 1) + 2
-    f = open(outputfile , "a")
-    f.write(f'arg={arg},callstack={callstack_size},session_size={dev.session.total_size}\n')
-    f.close()
+    with open(outputfile, "a") as file:
+        st = os.stat(outputfile)
+        if st.st_size == 0:
+            file.write(f'arg,callstack,session_size\n')
+        print(f'arg={arg},callstack={callstack_size},session_size={dev.session.total_size}\n')
+        file.write(f'{arg},{callstack_size},{dev.session.total_size}\n')
     
-def benchmark_decr_limits(arg, x = None, y = None ):
+def benchmark_experiment2(arg, isStack5 = True, default_size_exceeded = False):
     import time
     output_name = ''
-    if  x is None:
-        output_name = f"stickc_decr_"+ str(arg) + ".txt"
+    device = "stack5" if isStack5 else "stickc"
+    if  default_size_exceeded:
+        output_name = f"exceeded_{device}_decr_"+ str(arg) + ".csv"
     else:
-        if y is None:
-            output_name = f"stickc_decr_csx{x}_"+ str(arg) + ".txt"
-        else:
-            output_name = f"stickc_decr_csx{x}_sx{y}_"+ str(arg) + ".txt"
+        output_name = f"{device}_decr_"+ str(arg) + ".csv"
 
-    [i] = mod.linenr(28)
+    [i] = mod.linenr(27)
 
     dev = rmt
     dev.bench_name(output_name)
     dev.connect()
     dev.add_breakpoint(i)
     dev.run()
-    for i in range(10):
+    total_runs = 30
+    for i in range(total_runs):
         while dev.session is None or dev.session.version != i:
             print("sleeping 0.5secs")
             time.sleep(0.5)
 
         assert dev.session.version == i, f'incorrect {dev.session.version} != {i}'
 
-        if i != 9:
-            print("Send Run")
+        if i != (total_runs - 1):
+            print(f"Send Run {i}")
             dev.run()
 
     expected_frames = 2 * (arg + 1) + 2
     l = len(dev.session.callstack.all_frames)
-    reached = "" if expected_frames == l else f"not reached. Got {l}"
-    print(f"done bechmark_FAC_LIMITS file={output_name}, Expected frames={expected_frames} {reached}")
+    reached = "reached" if expected_frames == l else f"not reached. Got {l}"
+    print(f"done bechmark_COUNT_LIMITS file={output_name}, Expected frames={expected_frames} {reached}")
     if dev.session.exception:
         print(f"exception occurred: {dev.session.exception}")
+        return
 
 if __name__ == "__main__":
     path = None
