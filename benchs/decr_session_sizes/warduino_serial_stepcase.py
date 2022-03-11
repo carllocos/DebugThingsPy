@@ -109,12 +109,14 @@ if __name__ == "__main__":
     with serial.Serial(port, 115200) as serial:
 
         arg= int(sys.argv[1])
+        print(f"argument {arg}")
         callstack_size = 2 * (arg + 1) + 2
 
         print('reading offset')
-        content = read_content(serial)
-        content = content.decode()
-        assert 'OFFSET' in content, f'got {content}'
+        await_output(serial, "OFFSET\n")
+        # content = read_content(serial)
+        # content = content.decode()
+        # assert 'OFFSET' in content, f'got {content}'
 
 
         content = read_content(serial)
