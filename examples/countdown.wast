@@ -9,7 +9,6 @@
  (export "main" (func $main))
  (memory 1)
  (table funcref (elem $countdown $start))
-
  (global $g1  i32   (i32.const 0)) 
  (global $g2 (mut i32) (i32.const 0))
 
@@ -29,7 +28,7 @@
 
  (func $main (type $v2v)
     (loop 
-       (i64.const -1);;replace
+       (i64.const 10)
        (call $countdown)
        (call $start)
        (br 0)))
