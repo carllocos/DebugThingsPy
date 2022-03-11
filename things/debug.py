@@ -28,13 +28,22 @@ class Debugger:
     def bench_name(self, n:str) -> None:
         self.__bench = n
 
-    # def register_measure(self, tstart, tend, sess):
-    #     s = f"time:{tend - tstart},callstack:{len(sess.callstack.all_frames)},stack:{len(sess.stack)}\n"
-    #     # print(s)
-    #     if self.__bench != '':
-    #         f = open(self.__bench , "a")
-    #         f.write(s)
-    #         f.close()
+    def register_measure(self, tstart, tend, sess):
+        import os
+        len_callstack = len(sess.callstack.all_frames)
+        len_vals = len(sess.stack)
+        dtime = tend - tstart
+        total_bytes = sess.total_size
+        print(f"time:{dtime} callstack:{len_callstack} stack:{len_vals} total_bytes:{total_bytes}\n")
+        if self.__bench != '':
+            f = open(self.__bench , "a")
+
+            st = os.stat(self.__bench)
+            if st.st_size == 0:
+                f.write("time,callstack,stack,total_bytes\n")
+
+            f.write(f"{dtime},{len_callstack},{len_vals},{total_bytes}\n")
+            f.close()
 
     @property
     def proxy_config(self) -> Dict:
@@ -277,11 +286,11 @@ class Debugger:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
             return 
-        # starttime = time.monotonic()
+        starttime = time.monotonic()
         _json = self.device.get_execution_state()
         _sess = DebugSession.from_json(_json, self.module, self.device)
-        # end2 = time.monotonic()
-        # self.register_measure(starttime, end2, _sess)
+        end2 = time.monotonic()
+        self.register_measure(starttime, end2, _sess)
         # s = f"time:{end2 - starttime},callstack:{len(_sess.callstack.all_frames)},stack:{len(_sess.stack)}\n"
         # print(s)
         # f = open(self.__bench , "a")
@@ -326,7 +335,7 @@ class Debugger:
     def __handle_event(self, event: dict) -> None:
         ev = event['event']
         if ev == 'at bp':
-            infoprint(f"reached breakpoint {self.module.addr(event['breakpoint'])}")
+            dbgprint(f"reached breakpoint {self.module.addr(event['breakpoint'])}")
             self.__reachedbp = True
             self.debug_session()
             if 'single-stop' in self.policies:
