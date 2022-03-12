@@ -287,7 +287,6 @@ def receive_events(wood: WOODManager, aMedium: AMedium, callback: callable) -> N
             break
 
         if _start.find(at_start) >= 0:
-            # print("at bp ")
             _bp = _end[:-len(at_end)].decode()
             bp = hex(int(_bp , 16) - int(wood.offset, 16))
             callback({'event': 'at bp', 'breakpoint': bp})
@@ -484,7 +483,7 @@ def wood_state_to_wa_state(dump_json: dict) -> dict:
     state = {}
     state['pc'] = hex( int(dump_json['pc'], 16) - offset)
     if dump_json.get('pc_error', None) is not None:
-        state['pc_error'] = hex( int(dump_json['pc_error']))
+        state['pc_error'] = hex( int(dump_json['pc_error'], 16) - offset)
 
     state['breakpoints'] = [  hex( int(b, 16) - offset) for b in dump_json['breakpoints']]
     state['table'] = {
