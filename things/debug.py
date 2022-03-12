@@ -200,7 +200,7 @@ class Debugger:
             [inst] = self.module.linenr(inst)
 
         if self.device.remove_breakpoint(inst.addr):
-            infoprint(f'breakpoint {inst} removed')
+            infoprint(f'removed breakpoint {inst}')
             self.breakpoints = list(filter(lambda i: i.addr != inst.addr, self.breakpoints))
         else:
             infoprint(f"could not remove breakpoint {inst}")
@@ -286,11 +286,11 @@ class Debugger:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
             return 
-        starttime = time.monotonic()
+        # starttime = time.monotonic()
         _json = self.device.get_execution_state()
         _sess = DebugSession.from_json(_json, self.module, self.device)
-        end2 = time.monotonic()
-        self.register_measure(starttime, end2, _sess)
+        # end2 = time.monotonic()
+        # self.register_measure(starttime, end2, _sess)
         # s = f"time:{end2 - starttime},callstack:{len(_sess.callstack.all_frames)},stack:{len(_sess.stack)}\n"
         # print(s)
         # f = open(self.__bench , "a")
@@ -335,7 +335,7 @@ class Debugger:
     def __handle_event(self, event: dict) -> None:
         ev = event['event']
         if ev == 'at bp':
-            dbgprint(f"reached breakpoint {self.module.addr(event['breakpoint'])}")
+            infoprint(f"reached breakpoint {self.module.addr(event['breakpoint'])}")
             self.__reachedbp = True
             self.debug_session()
             if 'single-stop' in self.policies:
