@@ -10,7 +10,7 @@ import select
 import struct
 
 from interfaces import ASerial, AMessage, AMedium
-from utils import util, dbgprint, errprint
+from utils import util, dbgprint, errprint, infoprint
 from . import encoder
 
 AnsProtocol = {
@@ -259,6 +259,11 @@ class WOODManager(ASerial):
         msg = AMessage(content.upper(), receive_until_ack)
         return self.medium.send(msg)
 
+    def update_offset(self) -> None:
+        newoff = self.__ask_for_offset()
+        dbgprint(f'updating offset old_offset={self.offset} new offset={newoff}')
+        self.offset = newoff
+        
     #private
     def __ask_for_offset(self) -> str:
         offmsg = AMessage(Interrupts['offset'] + '\n', receive_offset)
@@ -395,7 +400,8 @@ def receive_done_session(wood, aMedium) -> bool:
 
 def receive_uploaddone(wood, aMedium):
     global proxy_config 
-    aMedium.recv_until(until=b'done!\n')
+    # aMedium.recv_until(until=b'done!\n') #incorrect
+    aMedium.recv_until(until=b'restart done!\n')
     wood.send_proxies(proxy_config)
     proxy_config = None
 
