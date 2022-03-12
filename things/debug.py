@@ -280,7 +280,9 @@ class Debugger:
         wasm = mod.compile()
         self.device.upload(wasm, cleaned_config)
         self.__proxy_config = cleaned_config
-
+        infoprint("Upload Module Done")
+        infoprint(f"Functions to Proxy {[] if proxy is None else proxy}")
+        self.device.update_offset()
 
     def debug_session(self) -> DebugSession:
         if not self.device.connected:
