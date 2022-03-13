@@ -1,0 +1,281 @@
+;; SOURCE MAP INFO 
+0000000: 0061 736d                                 ; WASM_BINARY_MAGIC
+0000004: 0100 0000                                 ; WASM_BINARY_VERSION
+; section "Type" (1)
+0000008: 01                                        ; section code
+0000009: 00                                        ; section size (guess)
+000000a: 06                                        ; num types
+; type 0
+000000b: 60                                        ; func
+000000c: 01                                        ; num params
+000000d: 7f                                        ; i32
+000000e: 00                                        ; num results
+; type 1
+000000f: 60                                        ; func
+0000010: 01                                        ; num params
+0000011: 7f                                        ; i32
+0000012: 01                                        ; num results
+0000013: 7f                                        ; i32
+; type 2
+0000014: 60                                        ; func
+0000015: 01                                        ; num params
+0000016: 7f                                        ; i32
+0000017: 01                                        ; num results
+0000018: 7d                                        ; f32
+; type 3
+0000019: 60                                        ; func
+000001a: 00                                        ; num params
+000001b: 00                                        ; num results
+; type 4
+000001c: 60                                        ; func
+000001d: 00                                        ; num params
+000001e: 01                                        ; num results
+000001f: 7d                                        ; f32
+; type 5
+0000020: 60                                        ; func
+0000021: 01                                        ; num params
+0000022: 7d                                        ; f32
+0000023: 00                                        ; num results
+0000009: 1a                                        ; FIXUP section size
+; section "Import" (2)
+0000024: 02                                        ; section code
+0000025: 00                                        ; section size (guess)
+0000026: 03                                        ; num imports
+; import header 0
+0000027: 03                                        ; string length
+0000028: 656e 76                                  env  ; import module name
+000002b: 0a                                        ; string length
+000002c: 6368 6970 5f64 656c 6179                 chip_delay  ; import field name
+0000036: 00                                        ; import kind
+0000037: 00                                        ; import signature index
+; import header 1
+0000038: 03                                        ; string length
+0000039: 656e 76                                  env  ; import module name
+000003c: 08                                        ; string length
+000003d: 7265 715f 7465 6d70                      req_temp  ; import field name
+0000045: 00                                        ; import kind
+0000046: 02                                        ; import signature index
+; import header 2
+0000047: 03                                        ; string length
+0000048: 656e 76                                  env  ; import module name
+000004b: 0c                                        ; string length
+000004c: 6973 5f63 6f6e 6e65 6374 6564            is_connected  ; import field name
+0000058: 00                                        ; import kind
+0000059: 01                                        ; import signature index
+0000025: 34                                        ; FIXUP section size
+; section "Function" (3)
+000005a: 03                                        ; section code
+000005b: 00                                        ; section size (guess)
+000005c: 05                                        ; num functions
+000005d: 05                                        ; function 0 signature index
+000005e: 03                                        ; function 1 signature index
+000005f: 02                                        ; function 2 signature index
+0000060: 04                                        ; function 3 signature index
+0000061: 03                                        ; function 4 signature index
+000005b: 06                                        ; FIXUP section size
+; section "Global" (6)
+0000062: 06                                        ; section code
+0000063: 00                                        ; section size (guess)
+0000064: 03                                        ; num globals
+0000065: 7f                                        ; i32
+0000066: 00                                        ; global mutability
+@ { line: 15, col_start: 24, col_end: 33 }
+0000067: 41                                        ; i32.const
+0000068: d617                                      ; i32 literal
+000006a: 0b                                        ; end
+000006b: 7f                                        ; i32
+000006c: 00                                        ; global mutability
+@ { line: 16, col_start: 24, col_end: 33 }
+000006d: 41                                        ; i32.const
+000006e: d717                                      ; i32 literal
+0000070: 0b                                        ; end
+0000071: 7d                                        ; f32
+0000072: 01                                        ; global mutability
+@ { line: 17, col_start: 32, col_end: 41 }
+0000073: 43                                        ; f32.const
+0000074: 0000 0000                                 ; f32 literal
+0000078: 0b                                        ; end
+0000063: 15                                        ; FIXUP section size
+; section "Export" (7)
+0000079: 07                                        ; section code
+000007a: 00                                        ; section size (guess)
+000007b: 01                                        ; num exports
+000007c: 04                                        ; string length
+000007d: 6d61 696e                                main  ; export name
+0000081: 00                                        ; export kind
+0000082: 07                                        ; export func index
+000007a: 08                                        ; FIXUP section size
+; section "Code" (10)
+0000083: 0a                                        ; section code
+0000084: 00                                        ; section size (guess)
+0000085: 05                                        ; num functions
+; function body 0
+0000086: 00                                        ; func body size (guess)
+0000087: 00                                        ; local decl count
+@ { line: 19, col_start: 35, col_end: 38 }
+0000088: 01                                        ; nop
+0000089: 0b                                        ; end
+0000086: 03                                        ; FIXUP func body size
+; function body 1
+000008a: 00                                        ; func body size (guess)
+000008b: 00                                        ; local decl count
+@ { line: 22, col_start: 8, col_end: 18 }
+000008c: 23                                        ; global.get
+000008d: 02                                        ; global index
+@ { line: 23, col_start: 8, col_end: 17 }
+000008e: 43                                        ; f32.const
+000008f: 0000 803f                                 ; f32 literal
+@ { line: 21, col_start: 6, col_end: 13 }
+0000093: 92                                        ; f32.add
+@ { line: 24, col_start: 6, col_end: 16 }
+0000094: 24                                        ; global.set
+0000095: 02                                        ; global index
+0000096: 0b                                        ; end
+000008a: 0c                                        ; FIXUP func body size
+; function body 2
+0000097: 00                                        ; func body size (guess)
+0000098: 00                                        ; local decl count
+@ { line: 27, col_start: 6, col_end: 15 }
+0000099: 20                                        ; local.get
+000009a: 00                                        ; local index
+@ { line: 28, col_start: 6, col_end: 10 }
+000009b: 10                                        ; call
+000009c: 02                                        ; function index
+@ { line: 29, col_start: 5, col_end: 6 }
+000009d: 04                                        ; if
+000009e: 7d                                        ; f32
+@ { line: 31, col_start: 11, col_end: 15 }
+000009f: 10                                        ; call
+00000a0: 04                                        ; function index
+@ { line: 32, col_start: 11, col_end: 20 }
+00000a1: 20                                        ; local.get
+00000a2: 00                                        ; local index
+@ { line: 33, col_start: 11, col_end: 15 }
+00000a3: 10                                        ; call
+00000a4: 01                                        ; function index
+00000a5: 05                                        ; else
+@ { line: 35, col_start: 12, col_end: 21 }
+00000a6: 43                                        ; f32.const
+00000a7: 0000 0000                                 ; f32 literal
+00000ab: 0b                                        ; end
+00000ac: 0b                                        ; end
+0000097: 15                                        ; FIXUP func body size
+; function body 3
+00000ad: 00                                        ; func body size (guess)
+00000ae: 00                                        ; local decl count
+@ { line: 38, col_start: 6, col_end: 16 }
+00000af: 23                                        ; global.get
+00000b0: 00                                        ; global index
+@ { line: 39, col_start: 6, col_end: 10 }
+00000b1: 10                                        ; call
+00000b2: 05                                        ; function index
+@ { line: 40, col_start: 6, col_end: 16 }
+00000b3: 23                                        ; global.get
+00000b4: 01                                        ; global index
+@ { line: 41, col_start: 6, col_end: 10 }
+00000b5: 10                                        ; call
+00000b6: 05                                        ; function index
+@ { line: 42, col_start: 5, col_end: 12 }
+00000b7: 92                                        ; f32.add
+@ { line: 43, col_start: 6, col_end: 16 }
+00000b8: 23                                        ; global.get
+00000b9: 02                                        ; global index
+@ { line: 44, col_start: 5, col_end: 12 }
+00000ba: 95                                        ; f32.div
+00000bb: 0b                                        ; end
+00000ad: 0e                                        ; FIXUP func body size
+; function body 4
+00000bc: 00                                        ; func body size (guess)
+00000bd: 00                                        ; local decl count
+@ { line: 48, col_start: 5, col_end: 6 }
+00000be: 03                                        ; loop
+00000bf: 40                                        ; void
+@ { line: 49, col_start: 32, col_end: 41 }
+00000c0: 43                                        ; f32.const
+00000c1: 0000 0000                                 ; f32 literal
+@ { line: 49, col_start: 9, col_end: 19 }
+00000c5: 24                                        ; global.set
+00000c6: 02                                        ; global index
+@ { line: 50, col_start: 9, col_end: 13 }
+00000c7: 10                                        ; call
+00000c8: 06                                        ; function index
+@ { line: 51, col_start: 9, col_end: 13 }
+00000c9: 10                                        ; call
+00000ca: 03                                        ; function index
+@ { line: 53, col_start: 9, col_end: 18 }
+00000cb: 41                                        ; i32.const
+00000cc: b817                                      ; i32 literal
+@ { line: 54, col_start: 9, col_end: 13 }
+00000ce: 10                                        ; call
+00000cf: 00                                        ; function index
+@ { line: 55, col_start: 9, col_end: 11 }
+00000d0: 0c                                        ; br
+00000d1: 00                                        ; break depth
+00000d2: 0b                                        ; end
+00000d3: 0b                                        ; end
+00000bc: 17                                        ; FIXUP func body size
+0000084: 4f                                        ; FIXUP section size
+; section "name"
+00000d4: 00                                        ; section code
+00000d5: 00                                        ; section size (guess)
+00000d6: 04                                        ; string length
+00000d7: 6e61 6d65                                name  ; custom section name
+00000db: 01                                        ; function name type
+00000dc: 00                                        ; subsection size (guess)
+00000dd: 08                                        ; num functions
+00000de: 00                                        ; function index
+00000df: 05                                        ; string length
+00000e0: 6465 6c61 79                             delay  ; func name 0
+00000e5: 01                                        ; function index
+00000e6: 07                                        ; string length
+00000e7: 7265 7154 656d 70                        reqTemp  ; func name 1
+00000ee: 02                                        ; function index
+00000ef: 0b                                        ; string length
+00000f0: 6973 436f 6e6e 6563 7465 64              isConnected  ; func name 2
+00000fb: 03                                        ; function index
+00000fc: 08                                        ; string length
+00000fd: 7265 6775 6c61 7465                      regulate  ; func name 3
+0000105: 04                                        ; function index
+0000106: 0d                                        ; string length
+0000107: 696e 635f 636f 6e6e 6563 7465 64         inc_connected  ; func name 4
+0000114: 05                                        ; function index
+0000115: 07                                        ; string length
+0000116: 6765 7454 656d 70                        getTemp  ; func name 5
+000011d: 06                                        ; function index
+000011e: 07                                        ; string length
+000011f: 6176 6754 656d 70                        avgTemp  ; func name 6
+0000126: 07                                        ; function index
+0000127: 04                                        ; string length
+0000128: 6d61 696e                                main  ; func name 7
+00000dc: 4f                                        ; FIXUP subsection size
+000012c: 02                                        ; local name type
+000012d: 00                                        ; subsection size (guess)
+000012e: 08                                        ; num functions
+000012f: 00                                        ; function index
+0000130: 01                                        ; num locals
+0000131: 00                                        ; local index
+0000132: 00                                        ; string length
+0000133: 01                                        ; function index
+0000134: 01                                        ; num locals
+0000135: 00                                        ; local index
+0000136: 00                                        ; string length
+0000137: 02                                        ; function index
+0000138: 01                                        ; num locals
+0000139: 00                                        ; local index
+000013a: 00                                        ; string length
+000013b: 03                                        ; function index
+000013c: 01                                        ; num locals
+000013d: 00                                        ; local index
+000013e: 00                                        ; string length
+000013f: 04                                        ; function index
+0000140: 00                                        ; num locals
+0000141: 05                                        ; function index
+0000142: 01                                        ; num locals
+0000143: 00                                        ; local index
+0000144: 00                                        ; string length
+0000145: 06                                        ; function index
+0000146: 00                                        ; num locals
+0000147: 07                                        ; function index
+0000148: 00                                        ; num locals
+000012d: 1b                                        ; FIXUP subsection size
+00000d5: 73                                        ; FIXUP section size

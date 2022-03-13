@@ -1,0 +1,44 @@
+
+temp_monitor.dbg.wasm:	file format wasm 0x1
+
+Section Details:
+
+Type[6]:
+ - type[0] (i32) -> nil
+ - type[1] (i32) -> i32
+ - type[2] (i32) -> f32
+ - type[3] () -> nil
+ - type[4] () -> f32
+ - type[5] (f32) -> nil
+Import[3]:
+ - func[0] sig=0 <delay> <- env.chip_delay
+ - func[1] sig=2 <reqTemp> <- env.req_temp
+ - func[2] sig=1 <isConnected> <- env.is_connected
+Function[5]:
+ - func[3] sig=5 <regulate>
+ - func[4] sig=3 <inc_connected>
+ - func[5] sig=2 <getTemp>
+ - func[6] sig=4 <avgTemp>
+ - func[7] sig=3 <main>
+Global[3]:
+ - global[0] i32 mutable=0 - init i32=3030
+ - global[1] i32 mutable=0 - init i32=3031
+ - global[2] f32 mutable=1 - init f32=0x0p+0
+Export[1]:
+ - func[7] <main> -> "main"
+Code[5]:
+ - func[3] size=3 <regulate>
+ - func[4] size=12 <inc_connected>
+ - func[5] size=21 <getTemp>
+ - func[6] size=14 <avgTemp>
+ - func[7] size=23 <main>
+Custom:
+ - name: "name"
+ - func[0] <delay>
+ - func[1] <reqTemp>
+ - func[2] <isConnected>
+ - func[3] <regulate>
+ - func[4] <inc_connected>
+ - func[5] <getTemp>
+ - func[6] <avgTemp>
+ - func[7] <main>
