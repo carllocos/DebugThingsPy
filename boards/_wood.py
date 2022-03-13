@@ -336,7 +336,7 @@ def receive_ack_pause(_, sock):
 
 def receive_step_ack(wood: WOODManager, medium: AMedium) -> bool:
     medium.recv_until(AnsProtocol['step'].encode())
-    medium.recv_until(b'STEP DONE!\n', wait = False, timeout=True)
+    medium.recv_until(b'STEP DONE!\n', wait = True, timeout=True)
     dbgprint("step done")
     return True
 
