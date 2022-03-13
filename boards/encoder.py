@@ -12,7 +12,8 @@ KINDS = {'pcState': '01',
          'tblState': '05',
          'memState': '06', 
          'brtblState': '07',
-         'stackvalsState': '08'}
+         'stackvalsState': '08',
+         'pcerrorState': '09'}
 
 # def dbgprint(s):
 #     curframe = inspect.currentframe()
@@ -53,6 +54,7 @@ def serialize_session(dssession, recv_int, max_bytes):
     chunks = [] 
 
     serialize_pc(dssession['pc'], chunks, max_space)
+    serialize_pc_error(dssession['pc_error'], chunks, max_space)
     serialize_breakpoints(dssession['breakpoints'], chunks, max_space)
     serialize_stackvalues(dssession['stack'], chunks, max_space)
     serialize_table(dssession['table'], chunks, max_space)
@@ -90,6 +92,18 @@ def serialize_pc(pc_addr, chunks, max_space):
     #dbgprint(f"serialie_pc: {pc_addr}")
     dbgprint(f"serialize {pc_addr}")
     kind = KINDS['pcState']
+    (p, _) = serialize_pointer(pc_addr)
+    pc_ser = kind + p 
+    dbgprint(f"pc_ser - {kind} {p}")
+    add_in_chunks(chunks, pc_ser, max_space)
+
+def serialize_pc_error(pc_addr, chunks, max_space):
+    #TODO add padding to the pointer to make even chars
+    #dbgprint(f"serialie_pc: {pc_addr}")
+    dbgprint(f"serialize pc_error={pc_addr}")
+    kind = KINDS['pcerrorState']
+    if pc_addr is None:
+        return
     (p, _) = serialize_pointer(pc_addr)
     pc_ser = kind + p 
     dbgprint(f"pc_ser - {kind} {p}")

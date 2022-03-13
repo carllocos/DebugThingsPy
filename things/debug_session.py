@@ -170,6 +170,12 @@ class DebugSession(object):
         tbl = self.table.to_json()
         _globals = self.globals.to_json()['globals']
         br_table = self.br_table
+        _pc_error = self.pc_error
+
+        if isinstance(_pc_error, Expr):
+           _pc_error = _pc_error.addr
+        elif _pc_error is not None and isinstance(_pc_error, str):
+            errprint(f"_pc_error is not appropriate type. type is {type(_pc_error)}")
 
         _json = {
             'pc': pc,
@@ -179,7 +185,8 @@ class DebugSession(object):
             'table': tbl,
             'br_table': br_table,
             'globals': _globals,
-            'breakpoints': self.__breakpoints
+            'breakpoints': self.__breakpoints,
+            'pc_error': _pc_error
         }
 
         return _json
