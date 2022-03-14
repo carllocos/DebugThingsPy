@@ -539,10 +539,8 @@ def wa_state_to_wood_state(_json: dict, offset: str) -> dict:
     rebase = lambda addr : hex( int(addr, 16) + _offset)
     _pc_error = _json['pc_error']
     if isinstance(_pc_error, str): 
-       print("pc_error is not a string")
        _pc_error = rebase(_pc_error) 
     elif isinstance(_pc_error, int):
-       print("pc_error is an int")
        _pc_error = hex(_pc_error + _offset)
 
     state = {
