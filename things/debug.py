@@ -184,7 +184,11 @@ class Debugger:
             return 
 
         if isinstance(expr, int):
-            [expr] = self.module.linenr(expr)
+            _expressions = self.module.linenr(expr)
+            if _expressions == []:
+                raise ValueError(f"No expression at linenr {expr}")
+            expr = _expressions[0]
+
         if self.device.add_breakpoint(expr.addr):
             # infoprint(f"added breakpoint at {expr}")
             infoprint(f"added breakpoint")
