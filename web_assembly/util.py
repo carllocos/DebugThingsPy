@@ -172,7 +172,8 @@ def read_sourcemap(file: Union[PurePath, str]) -> Any:
             end_inst = '; end'
             else_inst = '; else'
             src = []
-            
+            line_numbers = []
+
             line = sources.readline()
             while not (function_end in line):
                 while not (srcline_prefix in line) and not (function_end in line) and not (end_inst in line) and not (else_inst in line):
@@ -183,10 +184,12 @@ def read_sourcemap(file: Union[PurePath, str]) -> Any:
                 instr = {}
                 instr_line = line
                 if srcline_prefix in line:
+                    line_info = {}
                     line_parts = line[4:-3].split(',')
                     for l in line_parts:
                         k, v =  l.split(':') 
-                        instr[ k.strip() ] = int(v)
+                        line_info[ k.strip() ] = int(v)
+                    line_numbers.append(line_info)
                     instr_line = sources.readline()
                     
                 addr_part, inst_part = instr_line.split(';')
@@ -194,6 +197,9 @@ def read_sourcemap(file: Union[PurePath, str]) -> Any:
 
                 instr['addr'] =  int('0x' + instr_addr, 16)
                 instr['type'] = inst_part.strip()
+                for k,v in line_numbers[-1].items():
+                    instr[k] = v
+
                 src.append(instr) 
                 line = sources.readline()
 
