@@ -65,7 +65,9 @@ class Code:
         return self.__code_end
 
     def linenr(self, nr):
-        return list(filter(lambda i: i.linenr == nr, self.expressions))
+        exprs = list(filter(lambda i: i.linenr == nr, self.expressions))
+        exprs.sort(key=lambda e: e.addr)
+        return exprs
 
     def addr(self, addr):
         if isinstance(addr, str):
