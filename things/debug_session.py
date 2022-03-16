@@ -22,7 +22,7 @@ class DebugSession(object):
         self.__valid = None
         self.__version = None
         self.__pc_error = kwargs.get('pc_error', None)
-        self.__breakpoints= kwargs['breakpoints']
+        self.__breakpoints= kwargs.get('breakpoints', [])
 
         #TODO remove
         self.__totalsize = kwargs.get('session_size', None)
