@@ -119,7 +119,7 @@ class Debugger:
         if not self.device.connected:
             dbgprint(f'First connect to {self.device.name}')
             return 
-        # self.__update_session() #TODO uncomment
+        self.__update_session() #TODO uncomment
         if self.device.run():
             infoprint(f'`{self.device.name}` is running')
         else:
@@ -153,6 +153,7 @@ class Debugger:
             dbgprint(f'First connect to {self.device.name}')
             return 
 
+        self.__update_session() # TODO activate
         if expr is None:
             expr = self.changes_handler.session.pc
         elif isinstance(expr, DebugSession):
@@ -287,6 +288,7 @@ class Debugger:
         infoprint("Upload Module Done")
         infoprint(f"Functions to Proxy {[] if proxy is None else proxy}")
         self.device.update_offset()
+        self.module = mod
 
     def debug_session(self) -> DebugSession:
         if not self.device.connected:
@@ -327,6 +329,7 @@ class Debugger:
             debugsess = upd
 
         _json = debugsess.to_json()
+        # print(f'the session to send breakpoints {_json["breakpoints"]}')
         # _json['breakpoints'] = [ hex(bp.addr) for bp in self.breakpoints]
         dbgprint(f"sending breakpoints {_json['breakpoints']}")
         if self.device.receive_session(_json):
