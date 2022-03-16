@@ -42,6 +42,13 @@ class StackValue(ConstValue):
         self.__stack = s
 
     def _set_value(self, v) -> None:
+        if self.type in ['f32', 'f64']:
+            if not isinstance(v, float):
+                raise ValueError(f"exptected a value of type '{self.type}'")
+        else:
+            if not isinstance(v, int):
+                raise ValueError(f"exptected a value of type '{self.type}'")
+
         if self.__original is None:
             self.__original = self.copy()
             self.__original.stack = self.stack
