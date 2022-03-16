@@ -239,6 +239,7 @@ class WOODManager(ASerial):
     def receive_session(self, session: dict) -> bool:
         recv_int = Interrupts['receivesession']
         wood_state = wa_state_to_wood_state(session, self.offset)
+        # print(f'state to send to wood {wood_state}')
         dbgprint(f"State to send {wood_state}")
         sers = encoder.serialize_session(wood_state, recv_int, self.max_bytes)
         msgs = []
