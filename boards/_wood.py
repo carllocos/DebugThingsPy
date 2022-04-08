@@ -26,10 +26,10 @@ AnsProtocol = {
 
 Interrupts = {
     'addbp': '06',
-    'dump': '10',
-    'offset': '0x23',
+    'dump': '60',
+    'offset': '0x61',
     'locals': '11',
-    'receivesession': '22',
+    'receivesession': '62',
     'recvproxies': '25',
     'rmvbp': '07',
     'run': '01',

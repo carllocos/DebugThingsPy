@@ -1,20 +1,19 @@
 {
-	"program":"examples/fac.wast",
-	"out":"out/",
-	"proxy": [],
-	"devices": [
-		{
-			"name": "remote fac",
-			"host": "192.168.1.3",
-			"port": 80,
-			"serial": "/dev/ttyUSB0",
-			"enable": true
-		},
-		{
-			"name": "local fac",
-			"port": 8080,
-			"enable": true
-		}
-	]
-
+  "program": "examples/temp_monitor.wast",
+  "out": "out/",
+  "proxy": [
+    "$reqTemp"
+  ],
+  "devices": [
+    {
+      "name": "temp monitor",
+      "host": "192.168.122.153",
+      "port": 80,
+      "policy": "single-stop"
+    },
+    {
+      "name": "local monitor",
+      "port": 8192
+    }
+  ]
 }
