@@ -1,5 +1,6 @@
 (module
  (import "env" "chip_delay"   (func $delay       (type $i32tovoid)))
+ (import "env" "print"        (func $print       (type $f32tovoid)))
  (import "env" "req_temp"  (func $reqTemp     (type $i32tof32)))
  (import "env" "is_connected" (func $isConnected (type $i32toi32)))
 
@@ -16,7 +17,6 @@
  (global $sensorB i32 (i32.const 3031))
  (global $connected (mut f32) (f32.const 0))
 
-(func $regulate (type $f32tovoid) nop)
 (func $inc_connected (type $voidtovoid)
     (f32.add
       (global.get $connected)
@@ -59,7 +59,7 @@
     (loop 
        (global.set $connected (f32.const 0))
        (call $avgTemp)
-       (call $regulate)
+       (call $print)
        ;;sleep 3sec
        (i32.const 3000)
        (call $delay)
