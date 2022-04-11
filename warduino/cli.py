@@ -1,48 +1,36 @@
-from . import encoder
+import base64
 
-Interrupts = {
-    'addbp': '06',
-    'dump': '60',
-    'offset': '0x61',
-    'locals': '11',
-    'receivesession': '62',
-    'recvproxies': '25',
-    'rmvbp': '07',
-    'run': '01',
-    'step': '04',
-    'until': '05',
-    'updateModule' : '24',
-    'pause': '03'
-}
+import binary_protocol as bin_prot
+import mylogger as log
+
+def request_state():
+    return {"pc":"0x60000310809c","start":["0x600003108000"],"breakpoints":[],"stack":[{"idx":0,"type":"i32","value":1000}],"callstack":[{"type":0,"fidx":"0x4","sp":-1,"fp":-1,"block_key":"0x0", "ra":"0x60000310806f", "idx":0},{"type":3,"fidx":"0x0","sp":0,"fp":0,"block_key":"0x600003108090", "ra":"0x600003108092", "idx":1}],"globals":[{"idx":0,"type":"i32","value":23},{"idx":1,"type":"i32","value":1},{"idx":2,"type":"i32","value":0}],"table":{"max":0, "init":0, "elements":[]},"memory":{"pages":0,"max":0,"init":0,"bytes":[]},"br_table":{"size":"0x100","labels":[]}}
 
 #base 64
-
 def json2binary(state, offset_emulator):
-    recv_int = Interrupts['receivesession']
-    wood_state = rebase_state(session, offset_emulator)
-    dbgprint(f"State to send {wood_state}")
-    sers = encoder.serialize_session(wood_state, recv_int, self.max_bytes)
-    msgs = []
-    l = len(sers)
-    assert l >= 2, f'at least two expected got {l}'
-    _encoded = ''
-    for s in reverse(sers):
-        _encoded += (s + '\n')
-    print(_encoded.encode("base64"))
-    
-    # for idx, content in enumerate(sers):
-     #   rpl = receive_done_session if (idx + 1) == l else receive_ack
-        #print(content + '\n', rpl)
 
-    dbgprint(f"about to send #{len(msgs)}")
-    #replies = self.medium.send(msgs)
+    bytes_per_msg = 1000
+    wood_state = rebase_state(state, offset_emulator)
+    log.stderr_print(f"State to send {wood_state}")
 
-    #return replies[-1]
+    messages = bin_prot.encode_session(wood_state, bytes_per_msg)
+    messages.reverse()
+    _long_msg = ''
+    for m in messages:
+        _msg = m + '\n'
+        log.stderr_print(f'msg to send: {_msg}')
+        _long_msg += _msg
+    b64_bytes = base64.b64encode(_long_msg.encode("ascii"))
+    b64_str = b64_bytes.decode("ascii")
+  
+    log.stderr_print(f"about to send #{len(messages)}")
+    log.stderr_print(f'long msg: {_long_msg}')
+    log.stderr_print(f"Base 64 Encoded string: {b64_str}")
 
-# TODO still remove old offset
-def rebase_state(_json: dict, offset: str) -> dict:
-    _offset = int(offset, 16)
-    rebase = lambda addr : hex( int(addr, 16) + _offset)
+def rebase_state(_json: dict, target_offset: str) -> dict:
+    target_off = int(target_offset, 16)
+    offset = int(_json["start"][0], 16)
+    rebase = lambda addr : hex( (int(addr, 16) - offset) + target_off)
 
     state = {
         'pc' : rebase(_json['pc']),
@@ -66,20 +54,20 @@ def rebase_state(_json: dict, offset: str) -> dict:
         'stack': _json['stack'],
     }
 
-    _frame_types = {
-        'fun': 0,
-        'init_exp': 1,
-        'block': 2,
-        'loop': 3,
-        'if': 4
-    }
+    # _frame_types = {
+    #     'fun': 0,
+    #     'init_exp': 1,
+    #     'block': 2,
+    #     'loop': 3,
+    #     'if': 4
+    # }
 
     callstack = []
     for frame in _json['callstack']:
         _f = {
             'idx' : frame['idx'],
-            'type': _frame_types[frame['block_type']],
-            'fidx': hex(frame.get('fidx', 0)),
+            'type': frame['type'],
+            'fidx': frame.get('fidx'),# 0),
             'sp': frame['sp'],
             'fp': frame['fp'],
             'ra': frame.get('ret_addr', ''),
@@ -95,3 +83,14 @@ def rebase_state(_json: dict, offset: str) -> dict:
     state['callstack'] = callstack
 
     return state
+
+
+def test():
+    json2binary(request_state(), "0x00")
+
+if __name__ == "__main__":
+    test()
+else:
+    print("no main")
+            
+
