@@ -2,9 +2,8 @@ import base64
 
 import binary_protocol as bin_prot
 import mylogger as log
-
-def request_state():
-    return {"pc":"0x60000310809c","start":["0x600003108000"],"breakpoints":[],"stack":[{"idx":0,"type":"i32","value":1000}],"callstack":[{"type":0,"fidx":"0x4","sp":-1,"fp":-1,"block_key":"0x0", "ra":"0x60000310806f", "idx":0},{"type":3,"fidx":"0x0","sp":0,"fp":0,"block_key":"0x600003108090", "ra":"0x600003108092", "idx":1}],"globals":[{"idx":0,"type":"i32","value":23},{"idx":1,"type":"i32","value":1},{"idx":2,"type":"i32","value":0}],"table":{"max":0, "init":0, "elements":[]},"memory":{"pages":0,"max":0,"init":0,"bytes":[]},"br_table":{"size":"0x100","labels":[]}}
+import data
+import sys
 
 #base 64
 def json2binary(state, offset_emulator):
@@ -14,11 +13,13 @@ def json2binary(state, offset_emulator):
     log.stderr_print(f"State to send {wood_state}")
 
     messages = bin_prot.encode_session(wood_state, bytes_per_msg)
+
     messages.reverse()
     _long_msg = ''
+    complete_messages = []
     for m in messages:
-        _msg = m + '\n'
-        log.stderr_print(f'msg to send: {_msg}')
+        _msg = m + bin_prot.END_MSG
+        complete_messages.append(_msg)
         _long_msg += _msg
     b64_bytes = base64.b64encode(_long_msg.encode("ascii"))
     b64_str = b64_bytes.decode("ascii")
@@ -26,18 +27,39 @@ def json2binary(state, offset_emulator):
     log.stderr_print(f"about to send #{len(messages)}")
     log.stderr_print(f'long msg: {_long_msg}')
     log.stderr_print(f"Base 64 Encoded string: {b64_str}")
+    print(b64_str)
+
+    complete_messages.reverse()
+    return {'b64': b64_str, "messages": complete_messages}
+
 
 def rebase_state(_json: dict, target_offset: str) -> dict:
     target_off = int(target_offset, 16)
     offset = int(_json["start"][0], 16)
     rebase = lambda addr : hex( (int(addr, 16) - offset) + target_off)
 
+    br_table = _json['br_table']
+    br_table_size = int(br_table['size'], 16)
+    _br_labels = br_table['labels']
+    if isinstance(_br_labels, list):
+        _br_labels = _br_labels[0]
+    br_table_labels = bytes2int(_br_labels)
+
+    assert br_table_size == len(br_table_labels), f'expected size {len(br_table_labels)}'
+
+    # _frame_types = {
+    #         0: 'fun',
+    #         1: 'init_exp',
+    #         2: 'block',
+    #         3: 'loop',
+    #         4: 'if'
+    #     }
     state = {
         'pc' : rebase(_json['pc']),
         'breakpoints': [rebase(bp) for bp in _json['breakpoints']],
         'br_table': {
-            'size': len(_json['br_table']),
-            'labels': _json['br_table'],
+            'size': br_table_size,
+            'labels': br_table_labels,
             },
         'globals': _json['globals'],
         'table': {
@@ -54,29 +76,24 @@ def rebase_state(_json: dict, target_offset: str) -> dict:
         'stack': _json['stack'],
     }
 
-    # _frame_types = {
-    #     'fun': 0,
-    #     'init_exp': 1,
-    #     'block': 2,
-    #     'loop': 3,
-    #     'if': 4
-    # }
-
     callstack = []
     for frame in _json['callstack']:
+        log.stderr_print(f'Frame {frame}')
+
         _f = {
-            'idx' : frame['idx'],
             'type': frame['type'],
-            'fidx': frame.get('fidx'),# 0),
             'sp': frame['sp'],
             'fp': frame['fp'],
-            'ra': frame.get('ret_addr', ''),
-            'block_key': frame.get('block_key', '')
+            'ra': frame.get('ra', ''),
+
+            'fidx': frame['fidx'],# 0),
+            'block_key': frame['block_key'],
+            'idx' : frame['idx']
         }
-        if frame.get('ret_addr', False):
-            _f['ra'] = rebase(frame['ret_addr'])
-        if frame.get('block_key', False):
-            _f['block_key'] = rebase(frame['block_key'])
+        if _f['ra'] != '':
+            _f['ra'] = rebase(_f['ra'])
+        if _f['type'] != 0:
+            _f['block_key'] = rebase(_f['block_key'])
         callstack.append(_f)
 
     callstack.sort(key = lambda f: f['idx'], reverse= False)
@@ -84,13 +101,15 @@ def rebase_state(_json: dict, target_offset: str) -> dict:
 
     return state
 
-
-def test():
-    json2binary(request_state(), "0x00")
+def bytes2int(data):
+    ints = []
+    for i in range(0, len(data), 4):
+        x = int.from_bytes(data[i:i+4],  'little', signed=False)
+        ints.append(x)
+    return ints
 
 if __name__ == "__main__":
-    test()
-else:
-    print("no main")
-            
+    log.stderr_print(f'args {sys.argv}')
+    assert len(sys.argv) == 2, 'Offset of target emulutaro expected'
+    json2binary(data.fac_state(), sys.argv[1])
 
