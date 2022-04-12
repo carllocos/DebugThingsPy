@@ -5,6 +5,8 @@ import struct
 from utils import util
 import mylogger as log
 
+END_MSG = ' \n'
+
 Interrupts = {
     'addbp': '06',
     'dump': '60',
@@ -19,6 +21,7 @@ Interrupts = {
     'updateModule' : '24',
     'pause': '03'
 }
+
 
 KINDS = {'pcState': '01',
          'bpsState': '02',
@@ -56,28 +59,24 @@ def encode_session(dssession, max_bytes):
     #first recieve interrupt
     first_msg  = serialize_first_msg(dssession)
 
-    log.stderr_print(f"first message {first_msg}")
     chunks = [] 
-
     serialize_pc(dssession['pc'], chunks, max_space)
     # serialize_pc_error(dssession['pc_error'], chunks, max_space)
     serialize_breakpoints(dssession['breakpoints'], chunks, max_space)
     serialize_stackvalues(dssession['stack'], chunks, max_space)
     serialize_table(dssession['table'], chunks, max_space)
-    log.stderr_print(f"postTable {chunks}")
     serialize_callstack(dssession['callstack'], chunks, max_space)
     serialize_globals(dssession['globals'], chunks, max_space)
-    log.stderr_print(f"postgolbals {chunks}")
     serialize_memory(dssession['memory'], chunks, max_space)
-    log.stderr_print(f"postmem {chunks}")
-    # serialize_brtable(dssession['br_table'], chunks, max_space)
+    serialize_brtable(dssession['br_table'], chunks, max_space)
 
-    log.stderr_print(f"other msgs {chunks}")
+    # #log.stderr_print(f'len(chuncks)={len(chunks)} before adding first msg')
     chunks.insert(0, first_msg)
     last = len(chunks) - 1
+    # #log.stderr_print(f'len(chuncks)={len(chunks)}')
     ds_chunks = []
     for i, c in enumerate(chunks):
-        log.stderr_print(f"the chunk {c}")
+        #log.stderr_print(f"chunk #{i}: {c}")
         done = '01' if i == last else '00'
         size = size_and_assert(c + done)
         size_ser = int2bytes(size, 4).hex()
@@ -85,7 +84,7 @@ def encode_session(dssession, max_bytes):
 
     for i,c in enumerate(ds_chunks):
         if i == 0 and max_space < 74:
-            #  log.stderr_print(f'skipping assert on first_msg')
+            #log.stderr_print(f'skipping assert on first_msg')
             continue
         assert len(c) <= max_bytes, f'chunk {i} of len {len(c)}'
         assert len(c) % 2 == 0, f'Not an even chars chunk {c}'
@@ -97,24 +96,24 @@ def encode_session(dssession, max_bytes):
 #PC serialization
 def serialize_pc(pc_addr, chunks, max_space):
     #TODO add padding to the pointer to make even chars
-    #log.stderr_print(f"serialie_pc: {pc_addr}")
-    log.stderr_print(f"serialize {pc_addr}")
+    ##log.stderr_print(f"serialie_pc: {pc_addr}")
+    #log.stderr_print(f"serialize {pc_addr}")
     kind = KINDS['pcState']
     (p, _) = serialize_pointer(pc_addr)
     pc_ser = kind + p 
-    log.stderr_print(f"pc_ser - {kind} {p}")
+    #log.stderr_print(f"pc_ser - {kind} {p}")
     add_in_chunks(chunks, pc_ser, max_space)
 
 def serialize_pc_error(pc_addr, chunks, max_space):
     #TODO add padding to the pointer to make even chars
-    #log.stderr_print(f"serialie_pc: {pc_addr}")
-    log.stderr_print(f"serialize pc_error={pc_addr}")
+    ##log.stderr_print(f"serialie_pc: {pc_addr}")
+    #log.stderr_print(f"serialize pc_error={pc_addr}")
     kind = KINDS['pcerrorState']
     if pc_addr is None:
         return
     (p, _) = serialize_pointer(pc_addr)
     pc_ser = kind + p 
-    log.stderr_print(f"pc_ser - {kind} {p}")
+    #log.stderr_print(f"pc_ser - {kind} {p}")
     add_in_chunks(chunks, pc_ser, max_space)
 
 #helper serializers
@@ -125,7 +124,7 @@ def serialize_first_msg(session):
     kind_globals = KINDS['globalsState']
     quantity_globals = int2bytes(len(gls), 4).hex()
     globals_ser = kind_globals + quantity_globals
-    log.stderr_print(f"serializeing globals {quantity_globals}")
+    #log.stderr_print(f"serializeing globals {quantity_globals}")
 
     #Table
     tbl = session['table']
@@ -146,11 +145,11 @@ def serialize_first_msg(session):
     return globals_ser + tbl_ser + mem_ser
  
 def serialize_pointer(addr):
-    #log.stderr_print(f'serialize addr {addr} no offset {addr[2:]}')
+    ##log.stderr_print(f'serialize addr {addr} no offset {addr[2:]}')
     with_pad = make_evenaddr(addr)
-    #log.stderr_print(f'new addr 0x{with_pad}')
+    ##log.stderr_print(f'new addr 0x{with_pad}')
     size = int2bytes(len(with_pad) // 2, 1)
-    #log.stderr_print(f'size pointer {size} in hex {size.hex()} and addr {with_pad}')
+    ##log.stderr_print(f'size pointer {size} in hex {size.hex()} and addr {with_pad}')
     return (size.hex()+ with_pad, size)
 
 def add_in_chunks(chunks, serialization, max_space):
@@ -175,7 +174,7 @@ def make_evenaddr(addr):
         return "0" * chars_missing + noXo
 
 def serialize_breakpoints(bps, chunks, max_space):
-    log.stderr_print(f'serializing bps {bps}')
+    #log.stderr_print(f'serializing bps {bps}')
     kind = KINDS['bpsState']
     header_len = len(kind) + 2# 2 chars needed to express quantity of breakpoints
     current_chunk = chunks.pop(-1) if chunks and len(chunks[-1]) < max_space else ""
@@ -185,19 +184,19 @@ def serialize_breakpoints(bps, chunks, max_space):
     def add_chunk():
         nonlocal kind, quantity_bps, bps_ser, current_chunk
         header = kind + int2bytes(quantity_bps, 1).hex()
-        #log.stderr_print(f'making chunk for #{quantity_bps} bps')
-        #log.stderr_print(f'header {header} - {bps_ser}')
-        #log.stderr_print(f'current_chunk {current_chunk}')
+        ##log.stderr_print(f'making chunk for #{quantity_bps} bps')
+        ##log.stderr_print(f'header {header} - {bps_ser}')
+        ##log.stderr_print(f'current_chunk {current_chunk}')
         chunks.append(current_chunk + header + bps_ser)
 
     for bp in bps:
         (_serbp, _) = serialize_pointer(bp)
         if max_space <  len(current_chunk) + header_len + len(bps_ser) + len(_serbp):
-            #log.stderr_print(f'call whitin for add_chunk: bp not added yet {bp} with ser {_serbp}')
+            ##log.stderr_print(f'call whitin for add_chunk: bp not added yet {bp} with ser {_serbp}')
             if bps_ser != '':
                 add_chunk()
             else:
-                #log.stderr_print("in the else")
+                ##log.stderr_print("in the else")
                 chunks.append(current_chunk)
             quantity_bps = 0
             bps_ser = ""
@@ -207,11 +206,10 @@ def serialize_breakpoints(bps, chunks, max_space):
         bps_ser += _serbp
 
     if bps_ser != "":
-        #log.stderr_print("breakpoints_ser: call from outsite for")
+        ##log.stderr_print("breakpoints_ser: call from outsite for")
         add_chunk()
     elif current_chunk != "":
         chunks.append(current_chunk)
-    #log.stderr_print(f'TOTAL CHunks {len(chunks)}')
 
 def serialize_stackValue(vobj):
         t = int2bytes(valtype2int(vobj['type']), 1).hex()
@@ -219,19 +217,20 @@ def serialize_stackValue(vobj):
         return t + v
 
 def serialize_stackvalues(vals, chunks, max_space):
-    log.stderr_print(f'#{len(vals)} Stack Values')
+    #log.stderr_print(f'#{len(vals)} Stack Values')
+    #log.stderr_print(f'Chunks={chunks}')
     kind = KINDS['stackvalsState']
     header_len = len(kind) + 4# 4 chars for quantity stack values
     current_chunk = chunks.pop(-1) if chunks and len(chunks[-1]) < max_space else ""
     quantity_sv = 0
     vals_ser = ""
-    #  log.stderr_print(f"chunck used #{len(current_chunk)}")
+    #  #log.stderr_print(f"chunck used #{len(current_chunk)}")
     def add_chunk():
         nonlocal kind, quantity_sv, vals_ser, current_chunk
-        #  log.stderr_print(f'making chunk for #{quantity_sv} values')
+        #  #log.stderr_print(f'making chunk for #{quantity_sv} values')
         header = kind + int2bytes(quantity_sv, 2).hex()
         chunks.append(current_chunk + header + vals_ser)
-        #  log.stderr_print(f'chunk idx {len(chunks) -1} chunk {len(chunks[-1])}')
+        #  #log.stderr_print(f'chunk idx {len(chunks) -1} chunk {len(chunks[-1])}')
         assert len(chunks[-1]) <= max_space, f'failed for chunk idx {len(chunks) -1 } #{len(chunks[-1])}'
 
     for vobj in vals:
@@ -243,7 +242,7 @@ def serialize_stackvalues(vals, chunks, max_space):
             if vals_ser != '':
                 add_chunk()
             else:
-                log.stderr_print("in the else")
+                #log.stderr_print("in the else")
                 chunks.append(current_chunk)
             quantity_sv = 0
             vals_ser = ""
@@ -255,24 +254,26 @@ def serialize_stackvalues(vals, chunks, max_space):
     if vals_ser != "":
         add_chunk()
     elif current_chunk != "":
-        log.stderr_print("in the elif")
+        #log.stderr_print("in the elif")
         chunks.append(current_chunk)
+    #log.stderr_print(f'Chunks={chunks}')
 
 def serialize_globals(vals, chunks, max_space):
     #'globals': [{'idx': 0, 'type': 'i32', 'value': 0}, {'idx': 1, 'type': 'i32', 'value': 0}, {'idx': 2, 'type': 'i32', 'value': 88}],
-    #  log.stderr_print(f'serializing globals #{len(vals)} - globals - {vals}')
+    #  #log.stderr_print(f'serializing globals #{len(vals)} - globals - {vals}')
     kind = KINDS['globalsState']
+    #log.stderr_print(f'Chunks={chunks}')
     header_len = len(kind) + 8# 8 chars for quantity globals values
     current_chunk = chunks.pop(-1) if chunks and len(chunks[-1]) < max_space else ""
     quantity_globals = 0
     vals_ser = ""
-    #  log.stderr_print(f"chunck used #{len(current_chunk)}")
+    #  #log.stderr_print(f"chunck used #{len(current_chunk)}")
     def add_global_chunck():
         nonlocal current_chunk, kind, quantity_globals, vals_ser
-        log.stderr_print(f'making chunk for #{quantity_globals} values')
+        #log.stderr_print(f'making chunk for #{quantity_globals} values')
         header = kind + int2bytes(quantity_globals, 4).hex()
         chunks.append(current_chunk + header + vals_ser)
-        log.stderr_print(f'chunk idx {len(chunks) -1} chunk {len(chunks[-1])}')
+        #log.stderr_print(f'chunk idx {len(chunks) -1} chunk {len(chunks[-1])}')
         assert len(chunks[-1]) <= max_space, f'failed for chunk idx {len(chunks) -1 } #{len(chunks[-1])}'
 
     for vobj in vals:
@@ -281,7 +282,7 @@ def serialize_globals(vals, chunks, max_space):
             if vals_ser != '':
                 add_global_chunck()
             else:
-                log.stderr_print("in the else")
+                #log.stderr_print("in the else")
                 chunks.append(current_chunk)
             quantity_globals = 0
             vals_ser = ""
@@ -293,22 +294,24 @@ def serialize_globals(vals, chunks, max_space):
     if vals_ser != "":
         add_global_chunck()
     elif current_chunk != "":
-        log.stderr_print("in the elif")
+        #log.stderr_print("in the elif")
         chunks.append(current_chunk)
+    #log.stderr_print(f'Chunks={chunks}')
 
 def serialize_table(tbl, chunks, max_space):
-    #  log.stderr_print(f"serializing  #{len(tbl['elements'])} elements with {tbl}")
+    #  #log.stderr_print(f"serializing  #{len(tbl['elements'])} elements with {tbl}")
     kind = KINDS['tblState']
+    #log.stderr_print(f'Chunks={chunks}')
     funref = 17
     elem_type_bytes = 1 #1 byte to hold which kind of elements hold in table. Although for now only funcrefs
     elems_quantity_bytes = 4 #quantity bytes used to express quantity of elements
     header_len = len(kind) + (elem_type_bytes + elems_quantity_bytes) * 2 
 
-    #log.stderr_print(f'header len {header_len}')
+    ##log.stderr_print(f'header len {header_len}')
     quantity = 0
     elems_ser = ""
     current_chunk = chunks.pop(-1) if chunks and len(chunks[-1]) < max_space else ""
-    #log.stderr_print(f'current_chunk #{len(current_chunk)}')
+    ##log.stderr_print(f'current_chunk #{len(current_chunk)}')
 
     def chunk_tbl():
         nonlocal kind, quantity, elems_ser, current_chunk, elem_type_bytes, elems_quantity_bytes, funref
@@ -316,19 +319,19 @@ def serialize_table(tbl, chunks, max_space):
         elems_type_hex = int2bytes(funref, elem_type_bytes, byteorder='big').hex()
         header = kind + elems_type_hex + quanty_hex
         chunks.append(current_chunk + header + elems_ser)
-        #  log.stderr_print(f'CARLOS adding {quantity} elemts')
-        #log.stderr_print(f'chunk idx {len(chunks) -1} chunk {len(chunks[-1])}')
+        #  #log.stderr_print(f'CARLOS adding {quantity} elemts')
+        ##log.stderr_print(f'chunk idx {len(chunks) -1} chunk {len(chunks[-1])}')
         assert len(chunks[-1]) <= max_space, f'failed for chunk idx {len(chunks) -1 } #{len(chunks[-1])}'
 
     for e in tbl['elements']:
         e_ser = int2bytes(e, 4, byteorder='big').hex()
-        #log.stderr_print(f'{max_space} < {len(current_chunk)} + {header_len}+ {len(elems_ser)} + {len(e_ser)}')
+        ##log.stderr_print(f'{max_space} < {len(current_chunk)} + {header_len}+ {len(elems_ser)} + {len(e_ser)}')
         if max_space < len(current_chunk) + header_len + len(elems_ser) + len(e_ser):
             if elems_ser != '':
-                #  log.stderr_print("CARLOS lalala")
+                #  #log.stderr_print("CARLOS lalala")
                 chunk_tbl()
             else:
-                #  log.stderr_print("CARLOS in the else")
+                #  #log.stderr_print("CARLOS in the else")
                 chunks.append(current_chunk)
             quantity = 0
             elems_ser = ""
@@ -338,32 +341,34 @@ def serialize_table(tbl, chunks, max_space):
         elems_ser += e_ser
 
     if elems_ser != "":
-        #  log.stderr_print("CARLOS llooooo")
+        #  #log.stderr_print("CARLOS llooooo")
         chunk_tbl()
     elif current_chunk != "":
-        #  log.stderr_print("CARLOS YAAAY")
+        #  #log.stderr_print("CARLOS YAAAY")
         chunks.append(current_chunk)
-    #log.stderr_print(f'total chunks {len(chunks)}')
+    ##log.stderr_print(f'total chunks {len(chunks)}')
+    #log.stderr_print(f'Chunks={chunks}')
 
 def serialize_callstack(callstack, chunks, max_space):
-    log.stderr_print(f'serialzing #{len(callstack)} frames')
+    #log.stderr_print(f'serialzing #{len(callstack)} frames')
+    #log.stderr_print(f'Chunks={chunks}')
 
     kind = KINDS['callstackState']
     header_len = len(kind) + 4# 4 chars for quantity stack values
     current_chunk = chunks.pop(-1) if chunks and len(chunks[-1]) < max_space else ""
     quantity = 0
     frames_ser = ""
-    #  log.stderr_print(f"chunck used #{len(current_chunk)} {current_chunk}")
+    #  #log.stderr_print(f"chunck used #{len(current_chunk)} {current_chunk}")
     dbgframes = []
 
     def chunk_callstack():
         nonlocal kind, quantity, frames_ser, current_chunk
         quantity_ser = int2bytes(quantity, 2).hex()
         header = kind + quantity_ser
-        #  log.stderr_print(f"chunk for #{quantity} frames")
+        #  #log.stderr_print(f"chunk for #{quantity} frames")
         chunks.append(current_chunk + header + frames_ser)
         #  for i,f in enumerate(dbgframes):
-        #      log.stderr_print(f'i:{i} frame {f}')
+        #      #log.stderr_print(f'i:{i} frame {f}')
 
     for frame in callstack:
 
@@ -380,29 +385,30 @@ def serialize_callstack(callstack, chunks, max_space):
             (blockaddr_ser, _) = serialize_pointer(frame['block_key'])
             frame_ser += blockaddr_ser
 
-        #log.stderr_print(f'frame {frame} - {frame_ser}')
+        ##log.stderr_print(f'frame {frame} - {frame_ser}')
         if max_space < len(current_chunk) + header_len + len(frames_ser) + len(frame_ser) :
             if frames_ser != '':
-                #  log.stderr_print("FRAMES_CARL in the TRue")
+                #  #log.stderr_print("FRAMES_CARL in the TRue")
                 chunk_callstack()
             else:
-                #  log.stderr_print("FRAMES_CARL in the else")
+                #  #log.stderr_print("FRAMES_CARL in the else")
                 chunks.append(current_chunk)
             quantity = 0
             frames_ser = ""
             current_chunk = ""
             dbgframes = []
-        #  log.stderr_print(f'adding one frame of #{len(frame_ser)}')
+        #  #log.stderr_print(f'adding one frame of #{len(frame_ser)}')
         dbgframes.append(frame)
         quantity += 1
         frames_ser += frame_ser
     
     if frames_ser != "":
-        #  log.stderr_print("FRAMES_CARL in the outer true")
+        #  #log.stderr_print("FRAMES_CARL in the outer true")
         chunk_callstack()
     elif current_chunk != "":
-        #  log.stderr_print("FRAMES_CARL in the outer elif")
+        #  #log.stderr_print("FRAMES_CARL in the outer elif")
         chunks.append(current_chunk)
+    #log.stderr_print(f'Chunks={chunks}')
 
 def serialize_brtable(br_table, chunks, max_space):
     #output of the form
@@ -410,8 +416,9 @@ def serialize_brtable(br_table, chunks, max_space):
     # ------------------------------|
     #  1 byte |  2 bytes  | 2 bytes | uint32        |
     #|br_table| begin idx | end idx | br_table elem | ...
-    #  log.stderr_print(f'serializing br_table #{len(br_table["labels"])}')
+    #  #log.stderr_print(f'serializing br_table #{len(br_table["labels"])}')
     assert br_table['size'] == len(br_table['labels'])
+    #log.stderr_print(f'Chunks={chunks}')
     header_bytes = 5
     header_len =  header_bytes * 2
     br_tbl_elem_len = 4 * 2 #4 bytes to per elem
@@ -444,6 +451,7 @@ def serialize_brtable(br_table, chunks, max_space):
 
         current_chunk = ""
         begin_idx = end_idx
+    #log.stderr_print(f'Chunks={chunks}')
 
 def serialize_memory(memory, chunks, max_space):
     #output of the form
@@ -451,17 +459,20 @@ def serialize_memory(memory, chunks, max_space):
     # ------------------------------|
     #  1 byte |  4 bytes     | 4 bytes    |  bytes size = end offset - begin offset + 1 
     #| memory | begin offset | end offset | bytes  ...
-    log.stderr_print(f'serializing memory #{len(memory["bytes"])} bytes') #TODO replace total, with the use of pages
+    #log.stderr_print(f'serializing memory #{len(memory["bytes"])} bytes') #TODO replace total, with the use of pages
+    #log.stderr_print(f'Chunks={chunks}')
     header_bytes = 9
     header_len =  header_bytes * 2
     memcell_len = 1 * 2 #1 byte per memory cell
     if memory['pages'] == 0:
         return
-
+    if len(memory['bytes']) == 0:
+        #log.stderr_print('BYTES SHOULD NOT BE EMPTY!!!!!!!')
+        return
     current_chunk = ""
     if chunks and (len(chunks[-1]) + header_len + memcell_len ) <= max_space:
         #space for at least 1 memory cells in previous chunk
-        #  log.stderr_print(f'using exiting chunck')
+        #  #log.stderr_print(f'using exiting chunck')
         current_chunk = chunks.pop(-1)
 
     begin_off = 0
@@ -487,6 +498,7 @@ def serialize_memory(memory, chunks, max_space):
 
         current_chunk = ""
         begin_off = end_off
+    #log.stderr_print(f'Chunks={chunks}')
 
 def size_and_assert(ser):
     l = len(ser)
@@ -510,7 +522,7 @@ def valtype2int(t):
 def val2bytes(value_type, val):
     qb = 4 if value_type[1:] == '32' else 8
     if value_type[0] == 'i':
-        #  #log.stderr_print(f'serializing {value_type}')
+        #  ##log.stderr_print(f'serializing {value_type}')
         return int2bytes(val, qb, byteorder='little')
     else:
         #float case
@@ -526,9 +538,9 @@ def float2bytes(val, quantity, byteorder = 'big'):
     fmt = 'f' if quantity == 4 else 'd'
     fmt = ('>' if byteorder == 'big' else '<') + fmt
 
-    #  #log.stderr_print(f"formating value with {fmt}")
+    #  ##log.stderr_print(f"formating value with {fmt}")
     b = struct.pack(fmt, val) 
-    #  #log.stderr_print(f'value {val} becomes {b}')
+    #  ##log.stderr_print(f'value {val} becomes {b}')
     return b
 
 def isfunc_type(frame):
