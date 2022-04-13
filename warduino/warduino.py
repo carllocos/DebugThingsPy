@@ -34,10 +34,15 @@ class WARDuino:
         self.socket.send(msg.encode())
         return self.__receive_dump_helper()
 
-    def test_send_session(self):
+    def test_send_fac_session(self):
         dmp = self.dump()
         self.snapshot = dmp
         self.send_session(data.fac_state(), dmp['start'][0])
+
+    def test_send_blink_session(self):
+        dmp = self.dump()
+        self.snapshot = dmp
+        self.send_session(data.state_blink_led(), dmp['start'][0])
 
     def send_session(self, dmp, offset_emulator):
         encoded = cli.json2binary(dmp, offset_emulator)
