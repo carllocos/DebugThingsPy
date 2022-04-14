@@ -7,6 +7,10 @@ import sys
 
 #base 64
 def json2binary(state, offset_emulator):
+    encoding = son2binary_and_b64(state, offset_emulator)
+    return encoding['b64']
+
+def json2binary_and_b64(state, offset_emulator):
 
     bytes_per_msg = 1000
     wood_state = rebase_state(state, offset_emulator)
@@ -25,9 +29,9 @@ def json2binary(state, offset_emulator):
     b64_str = b64_bytes.decode("ascii")
   
     log.stderr_print(f"about to send #{len(messages)}")
-    log.stderr_print(f'long msg: {_long_msg}')
-    log.stderr_print(f"Base 64 Encoded string: {b64_str}")
-    print(b64_str)
+    # log.stderr_print(f'long msg: {_long_msg}')
+    # log.stderr_print(f"Base 64 Encoded string: {b64_str}")
+    print(b64_str) # TODO uncomment
 
     complete_messages.reverse()
     return {'b64': b64_str, "messages": complete_messages}
@@ -63,13 +67,13 @@ def rebase_state(_json: dict, target_offset: str) -> dict:
             },
         'globals': _json['globals'],
         'table': {
-            'init': _json['table'].get('min', 0),
-            'max': _json['table'].get('max', 0),
-            'elements' : _json['table']['elements']
+            'init': _json['table']['init'],
+            'max': _json['table']['max'],
+            'elements' : bytes2int(_json['table']['elements'])
         },
         'memory': {
-            'init': _json['memory'].get('min', 0),
-            'max': _json['memory'].get('max', 0),
+            'init': _json['memory']['init'],
+            'max': _json['memory']['max'],
             'pages': _json['memory']['pages'],
             'bytes': _json['memory']['bytes'],
         },
@@ -78,8 +82,7 @@ def rebase_state(_json: dict, target_offset: str) -> dict:
 
     callstack = []
     for frame in _json['callstack']:
-        log.stderr_print(f'Frame {frame}')
-
+        # log.stderr_print(f'Frame {frame}')
         _f = {
             'type': frame['type'],
             'sp': frame['sp'],
