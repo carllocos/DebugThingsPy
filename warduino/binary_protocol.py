@@ -6,13 +6,16 @@ from utils import util
 import mylogger as log
 
 END_MSG = ' \n'
+MAX_BYTES = 1000
 
 Interrupts = {
-    'addbp': '06',
     'dump': '60',
     'offset': '0x61',
-    'locals': '11',
     'receivesession': '62',
+    'monitorproxies': '63',
+
+    'locals': '11',
+    'addbp': '06',
     'recvproxies': '25',
     'rmvbp': '07',
     'run': '01',
@@ -39,7 +42,8 @@ def serialize_wasm(interrupt, wasm, max_bytes):
     ser = interrupt + size.hex() +  wasm.hex()
     return [ser.upper()]
 
-def serialize_proxies(interrupt, host, port, func_ids, max_bytes):
+def encode_monitorproxies(host, port, func_ids, max_bytes):
+    interrupt = Interrupts['monitorproxies']
     _func_amount = int2bytes(len(func_ids), 4).hex()
     _funcs = ''
     for i in func_ids:
@@ -47,10 +51,12 @@ def serialize_proxies(interrupt, host, port, func_ids, max_bytes):
     _lenhost = int2bytes(len(host), 1).hex()
     _host =  host.encode().hex()
     _port = int2bytes(port, 4).hex()
-    _sers = interrupt + _func_amount + _funcs + _port + _lenhost + _host
-    return [_sers.upper()]
+    _sers = interrupt + _func_amount + _funcs + _port + _lenhost + _host + END_MSG
+    return _sers.upper()
 
-def encode_session(dssession, max_bytes):
+def encode_state(dssession, max_bytes = None):
+    if max_bytes is None:
+        max_bytes = MAX_BYTES
     recv_int = Interrupts['receivesession']
     quanty_bytes_header = 1 + 4 #1 byte for interrupt (= 2 hexa chars) & 4 bytes for quantity bytes send (= 8 hexa chars)
     quanty_last_bytes = 2 #2 bytes, one to tell whether end or not and one for newline
@@ -88,7 +94,7 @@ def encode_session(dssession, max_bytes):
             continue
         assert len(c) <= max_bytes, f'chunk {i} of len {len(c)}'
         assert len(c) % 2 == 0, f'Not an even chars chunk {c}'
-    encoded = [c.upper() for c in ds_chunks]
+    encoded = [c.upper() + END_MSG for c in ds_chunks]
     assert len(encoded) >= 2, f'at least two messages expected got {len(encoded)}'
     return encoded
 

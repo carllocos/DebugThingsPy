@@ -1,41 +1,58 @@
+from __future__ import annotations
+from typing import Union, List, Any
 import base64
+import functools
+import operator
+import sys
 
 import binary_protocol as bin_prot
 import mylogger as log
 import data
-import sys
 
-#base 64
+#API
+
 def json2binary(state, offset_emulator):
+    """
+    same as json2binary_and_b64 but returns only the base64 encoded string
+    """
     encoding = son2binary_and_b64(state, offset_emulator)
     return encoding['b64']
 
 def json2binary_and_b64(state, offset_emulator):
+    """
+    generates payload for WARDuino `interruptRecvState`. The interrupt is used to provide WARDuino with a new state (i.e., application and execution state).
+    The state 1. is converted into an ordered list of `interruptRecvState` payload strings, 2. the strings are concateneded,
+    3. the resulting string is base64 encoded.
 
-    bytes_per_msg = 1000
+    The base64 string is also printed through stdout
+
+    :param state: state that has been extracted from WARDuino through an `interruptWOODDUMP` and that needs to be send to another WARDuino
+    :param offset_emulator: the start address of the target WARDuino to where the dump needs to be send
+    :return a dictionary containing the base64 encoded string and the list of payloads used to generate the base64 string
+    """
+
     wood_state = rebase_state(state, offset_emulator)
     log.stderr_print(f"State to send {wood_state}")
-
-    messages = bin_prot.encode_session(wood_state, bytes_per_msg)
-
-    messages.reverse()
-    _long_msg = ''
-    complete_messages = []
-    for m in messages:
-        _msg = m + bin_prot.END_MSG
-        complete_messages.append(_msg)
-        _long_msg += _msg
-    b64_bytes = base64.b64encode(_long_msg.encode("ascii"))
+    payloads = bin_prot.encode_state(wood_state)
+    concat_payload = functools.reduce(operator.add, payloads)
+    b64_bytes = base64.b64encode(concat_payload.encode("ascii"))
     b64_str = b64_bytes.decode("ascii")
   
-    log.stderr_print(f"about to send #{len(messages)}")
-    # log.stderr_print(f'long msg: {_long_msg}')
-    # log.stderr_print(f"Base 64 Encoded string: {b64_str}")
-    print(b64_str) # TODO uncomment
+    log.stderr_print(f"about to send #{len(payloads)}")
+    print(b64_str)
 
-    complete_messages.reverse()
-    return {'b64': b64_str, "messages": complete_messages}
+    return {'b64': b64_str, "messages": payloads}
 
+
+def encode_monitor_proxies(host: str, port: int, func_ids: List[int]) -> str:
+    """
+    generates payload for WARDuino `interruptMonitorProxies`
+    """
+    encoding = bin_prot.encode_monitorproxies()
+    print(encoding)
+    return encoding
+
+## PRIVATE
 
 def rebase_state(_json: dict, target_offset: str) -> dict:
     target_off = int(target_offset, 16)
@@ -51,13 +68,6 @@ def rebase_state(_json: dict, target_offset: str) -> dict:
 
     assert br_table_size == len(br_table_labels), f'expected size {len(br_table_labels)}'
 
-    # _frame_types = {
-    #         0: 'fun',
-    #         1: 'init_exp',
-    #         2: 'block',
-    #         3: 'loop',
-    #         4: 'if'
-    #     }
     state = {
         'pc' : rebase(_json['pc']),
         'breakpoints': [rebase(bp) for bp in _json['breakpoints']],
@@ -89,7 +99,7 @@ def rebase_state(_json: dict, target_offset: str) -> dict:
             'fp': frame['fp'],
             'ra': frame.get('ra', ''),
 
-            'fidx': frame['fidx'],# 0),
+            'fidx': frame['fidx'],
             'block_key': frame['block_key'],
             'idx' : frame['idx']
         }
