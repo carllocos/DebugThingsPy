@@ -45,16 +45,18 @@ class WARDuino:
         self.send_session(data.state_blink_led(), dmp['start'][0])
 
     def send_session(self, dmp, offset_emulator):
-        encoded = cli.json2binary(dmp, offset_emulator)
+        encoded = cli.json2binary_and_b64(dmp, offset_emulator)
         for idx, m in enumerate(encoded['messages']):
             self.socket.send(m.encode())
             log.stderr_print(f'sending msg #{idx}')
-            if idx == len(encoded['messages']) - 1:
-                log.stderr_print("waiting for done")
-                self.socket.recv_until(b'done!\n')
-            else:
-                log.stderr_print("waiting for ack")
-                self.socket.recv_until(b'ack!\n')
+            # if idx == len(encoded['messages']) - 1:
+            #     log.stderr_print("waiting for done")
+            #     self.socket.recv_until(b'done!\n')
+            # else:
+            #     log.stderr_print("waiting for ack")
+            #     self.socket.recv_until(b'ack!\n')
+        log.stderr_print("waiting for done!")
+        self.socket.recv_until(b'done!\n')
 
     def run(self):
         globals, POSTFIX_INT
@@ -99,6 +101,6 @@ class WARDuino:
         log.stderr_print(f'callstack #{len_cs} stack #{len_vals}')
         return parsed
 
-
+            
 wd = WARDuino()
 wd.connect()
