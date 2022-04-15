@@ -8,6 +8,7 @@ import sys
 import binary_protocol as bin_prot
 import mylogger as log
 import data
+import json
 
 #API
 
@@ -15,7 +16,7 @@ def json2binary(state, offset_emulator):
     """
     same as json2binary_and_b64 but returns only the base64 encoded string
     """
-    encoding = son2binary_and_b64(state, offset_emulator)
+    encoding = json2binary_and_b64(state, offset_emulator)
     return encoding['b64']
 
 def json2binary_and_b64(state, offset_emulator):
@@ -123,6 +124,11 @@ def bytes2int(data):
 
 if __name__ == "__main__":
     log.stderr_print(f'args {sys.argv}')
-    assert len(sys.argv) == 3, 'State and Offset of target emulutaro expected'
-    json2binary(sys.argv[1], sys.argv[2])
+    # print(f'State and Offset of target emulutaro expected {sys.argv[2]}')
+    # state = '{"pc":"0x3ffbdbf9","start":["0x3ffbdb70"],"breakpoints":[],"stack":[{"idx":0,"type":"i32","value":0}],"callstack":[{"type":0,"fidx":"0x4","sp":-1,"fp":-1,"block_key":"0x0","ra":"0x3ffbdbdf","idx":0}],"globals":[{"idx":0,"type":"i32","value":23},{"idx":1,"type":"i32","value":1},{"idx":2,"type":"i32","value":0}],"table":{"max":0,"init":0,"elements":[]},"memory":{"pages":0,"max":0,"init":0,"bytes":[]},"br_table":{"size":"0x100","labels":[]}}'
+    #off = '0x555b341d56a0'
+    # json2binary(sys.argv[1], sys.argv[2])
+    state = json.loads(sys.argv[1])
+    off =  sys.argv[2]
+    json2binary(state, off)
 
