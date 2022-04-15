@@ -123,6 +123,6 @@ def bytes2int(data):
 
 if __name__ == "__main__":
     log.stderr_print(f'args {sys.argv}')
-    assert len(sys.argv) == 2, 'Offset of target emulutaro expected'
-    json2binary(data.fac_state(), sys.argv[1])
+    assert len(sys.argv) == 3, 'State and Offset of target emulutaro expected'
+    json2binary(sys.argv[1], sys.argv[2])
 
