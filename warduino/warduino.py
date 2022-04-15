@@ -65,6 +65,15 @@ class WARDuino:
         self.socket.send(msg.encode())
         self.socket.recv_until(b"GO!\n")
         
+
+    def register_rfc(self, host: str, port: int, func_ids: List[int]) -> str:
+        payload = cli.encode_monitor_proxies(host, port, func_ids)
+        self.socket.send(payload.encode())
+
+
+    def disconnect(self):
+        self.socket.disconnect()
+
     def __receive_dump_helper(self):
 
         sock = self.socket
@@ -104,3 +113,4 @@ class WARDuino:
             
 wd = WARDuino()
 wd.connect()
+#wd.register_rfc("127.0.0.1", 8081, [2, 3, 1])

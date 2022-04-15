@@ -105,6 +105,9 @@ class Sockets:
 
         return True
 
+    def disconnect(self):
+        self.__socket.close()
+
     def send(self, content):
         self.__socket.send(content)
 

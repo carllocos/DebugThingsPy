@@ -42,7 +42,8 @@ def serialize_wasm(interrupt, wasm, max_bytes):
     ser = interrupt + size.hex() +  wasm.hex()
     return [ser.upper()]
 
-def encode_monitorproxies(host, port, func_ids, max_bytes):
+def encode_monitorproxies(host, port, func_ids):
+    max_bytes = MAX_BYTES
     interrupt = Interrupts['monitorproxies']
     _func_amount = int2bytes(len(func_ids), 4).hex()
     _funcs = ''

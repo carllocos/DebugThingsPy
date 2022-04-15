@@ -48,7 +48,7 @@ def encode_monitor_proxies(host: str, port: int, func_ids: List[int]) -> str:
     """
     generates payload for WARDuino `interruptMonitorProxies`
     """
-    encoding = bin_prot.encode_monitorproxies()
+    encoding = bin_prot.encode_monitorproxies(host, port, func_ids)
     print(encoding)
     return encoding
 
