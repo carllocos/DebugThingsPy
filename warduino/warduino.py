@@ -27,22 +27,15 @@ class WARDuino:
     def connect(self):
         self.socket.connect()
 
-    def dump(self):
+    def dump(self, save: bool = False, file_name: str = 'dump.json' ):
         globals, POSTFIX_INT
         msg = Interrupts['dump'] + POSTFIX_INT
         log.stderr_print(f"sending {msg.encode()}")
         self.socket.send(msg.encode())
-        return self.__receive_dump_helper()
-
-    def test_send_fac_session(self):
-        dmp = self.dump()
-        self.snapshot = dmp
-        self.send_session(data.fac_state(), dmp['start'][0])
-
-    def test_send_blink_session(self):
-        dmp = self.dump()
-        self.snapshot = dmp
-        self.send_session(data.state_blink_led(), dmp['start'][0])
+        state = self.__receive_dump_helper()
+        if save:
+            data.save_state(file_name, state['str'])
+        return state['parsed']
 
     def send_session(self, dmp, offset_emulator):
         encoded = cli.json2binary_and_b64(dmp, offset_emulator)
@@ -70,7 +63,6 @@ class WARDuino:
         payload = cli.encode_monitor_proxies(host, port, func_ids)
         self.socket.send(payload.encode())
 
-
     def disconnect(self):
         self.socket.disconnect()
 
@@ -84,11 +76,31 @@ class WARDuino:
             len_cs = len(parsed['callstack'])
             len_vals = len(parsed['stack'])
             log.stderr_print(f'callstack #{len_cs} stack #{len_vals}')
-            return parsed
+            return {"str": dec, "parsed": parsed}
         except: 
             log.stderr_print(f"failed for raw {json_bytes}")
             raise ValueError("something wrong")
-            
+
+    # TEST METHODS 
+
+    def test_send_fac_session(self):
+        dmp = self.dump()
+        self.send_session(data.fac_state(), dmp['start'][0])
+
+    def test_send_blink_session(self):
+        dmp = self.dump()
+        self.snapshot = dmp
+        self.send_session(data.state_blink_led(), dmp['start'][0])
+
+    def test_bin_encode(self):
+        globals, POSTFIX_INT
+        msg = Interrupts['dump'] + POSTFIX_INT
+        log.stderr_print(f"sending {msg.encode()}")
+        self.socket.send(msg.encode())
+        state = self.__receive_dump_helper()['str']
+        encoded = cli.json2binary_and_b64(state, data.fac_state()['start'][0])
+
+
 wd = WARDuino()
 wd.connect()
 #wd.register_rfc("127.0.0.1", 8081, [2, 3, 1])
