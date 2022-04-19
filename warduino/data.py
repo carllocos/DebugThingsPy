@@ -65,12 +65,16 @@ def snapshots_equal(s1, s2):
     assert br_tbl1['size'] == br_tbl2['size'], f"unequal size br_table {br_tbl1['size']}!={br_tbl2['size']}"
     assert br_tbl1['labels'] == br_tbl2['labels'], f"unequal labels br_table {br_tbl1['labels']}!={br_tbl2['labels']}"
 
-def state_blink_led():
-    labels = b'\x00' * 1024
-    return {'pc': '0x600002dd00a6', 'start': ['0x600002dd0000'], 'breakpoints': [], 'stack': [{'idx': 0, 'type': 'i32', 'value': 1000}], 'callstack': [{'type': 0, 'fidx': '0x4', 'sp': -1, 'fp': -1, 'block_key': '0x0', 'ra': '0x600002dd006f', 'idx': 0}, {'type': 3, 'fidx': '0x0', 'sp': 0, 'fp': 0, 'block_key': '0x600002dd0090', 'ra': '0x600002dd0092', 'idx': 1}], 'globals': [{'idx': 0, 'type': 'i32', 'value': 23}, {'idx': 1, 'type': 'i32', 'value': 1}, {'idx': 2, 'type': 'i32', 'value': 0}], 'table': {'max': 0, 'init': 0, 'elements': b''}, 'memory': {'pages': 0, 'max': 0, 'init': 0, 'bytes': b''}, 'br_table': {'size': '0x100', 'labels': labels}}
 
+PREFIX = 'test_data/'
+def save_state(file_name: str, content: str) -> None:
+    with open(PREFIX + file_name,"w" ) as f:
+        f.write(content)
+
+def state_blink_led():
+    with open(PREFIX + 'blink.json', "r") as file:
+        return file.read()
 
 def fac_state():
-    labels = b'\x00' * 1024
-    mem_bytes = b'\x00' * 65536 * 2 # 2 memory pages
-    return {'pc': '0x6000011f0065', 'start': ['0x6000011f0000'], 'breakpoints': [], 'stack': [{'idx': 0, 'type': 'i32', 'value': 5}, {'idx': 1, 'type': 'i32', 'value': 5}, {'idx': 2, 'type': 'i32', 'value': 4}, {'idx': 3, 'type': 'i32', 'value': 3}], 'callstack': [{'type': 0, 'fidx': '0x3', 'sp': -1, 'fp': -1, 'block_key': '0x0', 'ra': '0x6000011f005a', 'idx': 0}, {'type': 3, 'fidx': '0x0', 'sp': 0, 'fp': 0, 'block_key': '0x6000011f0083', 'ra': '0x6000011f0085', 'idx': 1}, {'type': 0, 'fidx': '0x2', 'sp': 0, 'fp': 0, 'block_key': '0x0', 'ra': '0x6000011f0089', 'idx': 2}, {'type': 4, 'fidx': '0x0', 'sp': 2, 'fp': 1, 'block_key': '0x6000011f006a', 'ra': '0x6000011f006c', 'idx': 3}, {'type': 0, 'fidx': '0x2', 'sp': 1, 'fp': 1, 'block_key': '0x0', 'ra': '0x6000011f0073', 'idx': 4}, {'type': 4, 'fidx': '0x0', 'sp': 3, 'fp': 2, 'block_key': '0x6000011f006a', 'ra': '0x6000011f006c', 'idx': 5}, {'type': 0, 'fidx': '0x2', 'sp': 2, 'fp': 2, 'block_key': '0x0', 'ra': '0x6000011f0073', 'idx': 6}], 'globals': [{'idx': 0, 'type': 'i32', 'value': 0}, {'idx': 1, 'type': 'i32', 'value': 0}], 'table': {'max': 2, 'init': 2, 'elements': b'\x02\x00\x00\x00\x01\x00\x00\x00'}, 'memory': {'pages': 2, 'max': 32768, 'init': 2, 'bytes': mem_bytes}, 'br_table': {'size': '0x100', 'labels': labels}}
+    with open(PREFIX + 'fac_state.json', "r") as file:
+        return file.read()
