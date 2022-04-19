@@ -12,14 +12,14 @@ import json
 
 #API
 
-def json2binary(state, offset_emulator):
+def json2binary(state:str, offset_emulator:str):
     """
     same as json2binary_and_b64 but returns only the base64 encoded string
     """
     encoding = json2binary_and_b64(state, offset_emulator)
     return encoding['b64']
 
-def json2binary_and_b64(state, offset_emulator):
+def json2binary_and_b64(state:str, offset_emulator:str):
     """
     generates payload for WARDuino `interruptRecvState`. The interrupt is used to provide WARDuino with a new state (i.e., application and execution state).
     The state 1. is converted into an ordered list of `interruptRecvState` payload strings, 2. the strings are concateneded,
@@ -32,7 +32,7 @@ def json2binary_and_b64(state, offset_emulator):
     :return a dictionary containing the base64 encoded string and the list of payloads used to generate the base64 string
     """
 
-    wood_state = rebase_state(state, offset_emulator)
+    wood_state = rebase_state(json.loads(state), offset_emulator)
     log.stderr_print(f"State to send {wood_state}")
     payloads = bin_prot.encode_state(wood_state)
     concat_payload = functools.reduce(operator.add, payloads)
@@ -61,35 +61,31 @@ def rebase_state(_json: dict, target_offset: str) -> dict:
     rebase = lambda addr : hex( (int(addr, 16) - offset) + target_off)
 
     br_table = _json['br_table']
-    br_table_size = int(br_table['size'], 16)
-    _br_labels = br_table['labels']
-    if isinstance(_br_labels, list):
-        _br_labels = _br_labels[0]
-    br_table_labels = bytes2int(_br_labels)
-
-    assert br_table_size == len(br_table_labels), f'expected size {len(br_table_labels)}'
-
     state = {
         'pc' : rebase(_json['pc']),
         'breakpoints': [rebase(bp) for bp in _json['breakpoints']],
         'br_table': {
-            'size': br_table_size,
-            'labels': br_table_labels,
+            'size': int(br_table['size'], 16),
+            'labels': br_table['labels']
             },
         'globals': _json['globals'],
         'table': {
             'init': _json['table']['init'],
             'max': _json['table']['max'],
-            'elements' : bytes2int(_json['table']['elements'])
+            'elements' : _json['table']['elements']
         },
         'memory': {
             'init': _json['memory']['init'],
             'max': _json['memory']['max'],
             'pages': _json['memory']['pages'],
-            'bytes': _json['memory']['bytes'],
+            'bytes': int2bytes(_json['memory']['bytes']),
         },
         'stack': _json['stack'],
     }
+
+    assert state['br_table']['size'] == len(state['br_table']['labels']), f'expected br_table size {state["br_table"]["size"]} given {len(state["br_table"]["labels"])}'
+    total_memory_bytes = state['memory']['pages'] * 65536 # total bytes = quantity pages * page zise
+    assert total_memory_bytes == len(state['memory']['bytes']), f'expected size {total_memory_bytes} given {len(state["memory"]["bytes"])}'
 
     callstack = []
     for frame in _json['callstack']:
@@ -115,23 +111,18 @@ def rebase_state(_json: dict, target_offset: str) -> dict:
 
     return state
 
-def bytes2int(data):
+def bytes2ints(data, bytes_per_int: int = 4):
     ints = []
-    for i in range(0, len(data), 4):
-        x = int.from_bytes(data[i:i+4],  'little', signed=False)
+    for i in range(0, len(data), bytes_per_int):
+        x = int.from_bytes(data[i:i+bytes_per_int],  'little', signed=False)
         ints.append(x)
     return ints
 
+def int2bytes(ints:List[int], bytes_per_int: int = 1):
+    return bytes(ints)
+
 if __name__ == "__main__":
     log.stderr_print(f'args {sys.argv}')
-    # print(f'State and Offset of target emulutaro expected {sys.argv[2]}')
-    # state = '{"pc":"0x3ffbdbf9","start":["0x3ffbdb70"],"breakpoints":[],"stack":[{"idx":0,"type":"i32","value":0}],"callstack":[{"type":0,"fidx":"0x4","sp":-1,"fp":-1,"block_key":"0x0","ra":"0x3ffbdbdf","idx":0}],"globals":[{"idx":0,"type":"i32","value":23},{"idx":1,"type":"i32","value":1},{"idx":2,"type":"i32","value":0}],"table":{"max":0,"init":0,"elements":[]},"memory":{"pages":0,"max":0,"init":0,"bytes":[]},"br_table":{"size":"0x100","labels":[]}}'
-    off = '0x555b341d56a0'
-    # json2binary(sys.argv[1], sys.argv[2])
-    with open("wood-pull.json", "r") as file:
-        content = file.read()
-        print(f"type={type(content)}")
-        state = json.loads(content)
-        # state = json.loads(sys.argv[1])
-        # off =  sys.argv[2]
-        json2binary(content, off)
+    state_mcu =  sys.argv[1]
+    offset_emulator =  sys.argv[2]
+    json2binary(sys.argv[1], sys.argv[2])
