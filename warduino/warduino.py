@@ -75,41 +75,19 @@ class WARDuino:
         self.socket.disconnect()
 
     def __receive_dump_helper(self):
-
         sock = self.socket
         _noise = sock.recv_until(b'DUMP!\n')
-
-        raw_end = b']}'
-        re_len = len(raw_end)
-
-        json_bytes = b''
-        json_bytes += sock.recv_until(b'"elements":[') + raw_end
-        elements = sock.recv_until(raw_end)[:-re_len]
-        json_bytes += sock.recv_until(b'"bytes":[') + raw_end
-        membytes = sock.recv_until(raw_end)[:-2]
-        json_bytes += sock.recv_until(b'"labels":[') + raw_end
-        labels = sock.recv_until(raw_end)[:-re_len]
-        json_bytes += sock.recv_until(b'\n')[:-len(b'\n')]
-
-        dec=None
+        json_bytes = sock.recv_until(b'\n')[:-len(b'\n')]
         try:
             dec = json_bytes.decode()
+            parsed = json.loads(dec)
+            len_cs = len(parsed['callstack'])
+            len_vals = len(parsed['stack'])
+            log.stderr_print(f'callstack #{len_cs} stack #{len_vals}')
+            return parsed
         except: 
             log.stderr_print(f"failed for raw {json_bytes}")
             raise ValueError("something wrong")
-
-        parsed = json.loads(dec)
-        parsed['memory']['bytes'] = membytes
-        parsed['table']['elements'] = elements
-        br_tbl = parsed['br_table']
-        br_tbl['size'] = br_tbl['size']
-        br_tbl['labels'] = labels
-
-        len_cs = len(parsed['callstack'])
-        len_vals = len(parsed['stack'])
-        log.stderr_print(f'callstack #{len_cs} stack #{len_vals}')
-        return parsed
-
             
 wd = WARDuino()
 wd.connect()
