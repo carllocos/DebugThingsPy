@@ -241,3 +241,13 @@ The API avaible for *DebugSession* objects (things/debug_session.py).
 - Make the debugger a command line tool.
 - Discover mode
 - Allow manual changes on the debug session
+
+
+
+# DEPENDENCIES
+
+## TOPLLAB WABT
+- clone git@github.com:TOPLLab/wabt.git
+- switch to `develop` branch
+- restore commit *WARDUINO-SPECIFIC: output sourcemap* *hash: 465dae5f182bcd6c6792ff43033088a9a6ae293c*
+- change verbose compilation to use `stdout` instead of `stderr` as shown in [commit](https://github.com/TOPLLab/wabt/commit/982a6dbe4c50c324252576ff2988e0873651b8ca)
