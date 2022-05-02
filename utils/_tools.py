@@ -40,6 +40,8 @@ def wat2wasm(file: Union[str, PurePath], out_filename: Union[str, PurePath], des
 
 
 def wasm_sourcemaps(src: PurePath, out: PurePath) -> None:
+    from subprocess import run, PIPE
+
     global WABT_BUILD
     no_ext_name = src.name.split('.')[0]
     wasm_path = out.joinpath(no_ext_name + '.dbg.wasm')
@@ -49,10 +51,10 @@ def wasm_sourcemaps(src: PurePath, out: PurePath) -> None:
 
     #make directory if needed first
     _make_parentsdir(wasm_path)
-    comp2wasm  = f'{WABT_BUILD}./wat2wasm --debug-names -v {src} -o {wasm_path} > {srcmap_path}'
-    if os.system(comp2wasm) != 0:
-        print(f'error in {comp2wasm}')
-        return
+    comp2wasm = [f'{WABT_BUILD}./wat2wasm', '--debug-names', '-v', src, '-o', wasm_path]
+    p = run( comp2wasm, stdout=PIPE, stderr=PIPE )
+    with open(srcmap_path, "w") as srcmap_file:
+        srcmap_file.write(p.stdout.decode())
 
     wasm2headers = f'{WABT_BUILD}./wasm-objdump {wasm_path} -h > {headers_path}'
     if os.system(wasm2headers) != 0:
