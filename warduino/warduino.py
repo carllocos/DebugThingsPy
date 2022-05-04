@@ -103,4 +103,4 @@ class WARDuino:
 
 wd = WARDuino()
 wd.connect()
-#wd.register_rfc("127.0.0.1", 8081, [2, 3, 1])
+#wd.register_rfc("192.168.0.130", 8080, [2, 3, 1])
