@@ -6,11 +6,11 @@ from boards import M5StickC
 from communication import Sockets, MCUSerial
 from boards import WOODManager
 
-class Device(WOODManager):
 
-    def __init__(self, config: dict) -> Device:
+class Device(WOODManager):
+    def __init__(self, config: dict):
         super().__init__()
-        self.__name = config['name']
+        self.__name = config["name"]
         self.__remote = None
         self.__socket = None
         self.__serial = None
@@ -18,27 +18,27 @@ class Device(WOODManager):
         self.__host = None
         self.__port = None
 
-        if config.get('port', False):
-            p = config['port']
-            h = config.get('host', 'localhost')
+        if config.get("port", False):
+            p = config["port"]
+            h = config.get("host", "localhost")
             self.__socket = Sockets(p, h)
             self.medium = self.__socket
             self.__host = self.medium.host
             self.__port = self.medium.port
 
-        elif config.get('serial', False):
-            c = M5StickC.serialConfig(config['serial'])
+        elif config.get("serial", False):
+            c = M5StickC.serialConfig(config["serial"])
             self.__serial = MCUSerial(c)
             self.medium = self.__socket
 
         if None not in [self.__socket, self.__serial]:
             self.redirect_dbg(self.__serial)
 
-        if self.__serial is not None:
-            self.__remote = True
-        elif self.__socket is not None:
-            if self.__socket.host == 'localhost':
-                self.__remote  = False
+        # if self.__serial is not None:
+        #     self.__remote = True
+        if self.__socket is not None:
+            if self.__socket.host == "localhost":
+                self.__remote = False
             else:
                 self.__remote = True
         else:
@@ -66,7 +66,7 @@ class Device(WOODManager):
 
     @property
     def uses_serial(self) -> bool:
-        return self.__serial is  not None
+        return self.__serial is not None
 
     @property
     def uses_socket(self) -> bool:

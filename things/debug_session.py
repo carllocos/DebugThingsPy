@@ -5,37 +5,36 @@ from utils import dbgprint, errprint
 from boards import Device
 from web_assembly import WAModule, CallStack, Stack, Table, Memory, Globals, Expr
 
-class DebugSession(object):
 
-    def __init__(self, **kwargs): 
-        self.__module = kwargs['module']
-        self.__pc = kwargs['pc']
-        self.__cs = kwargs['callstack']
-        self.__sv = kwargs['stack']
-        self.__memory = kwargs['memory']
-        self.__table = kwargs['table']
-        self.__br_table = kwargs['br_table']
-        self.__globals = kwargs['globals']
-        self.__device = kwargs['device']
+class DebugSession(object):
+    def __init__(self, **kwargs):
+        self.__module = kwargs["module"]
+        self.__pc = kwargs["pc"]
+        self.__cs = kwargs["callstack"]
+        self.__sv = kwargs["stack"]
+        self.__memory = kwargs["memory"]
+        self.__table = kwargs["table"]
+        self.__br_table = kwargs["br_table"]
+        self.__globals = kwargs["globals"]
+        self.__device = kwargs["device"]
         self.__exception = None
         self.__instr = None
         self.__valid = None
         self.__version = None
-        self.__pc_error = kwargs.get('pc_error', None)
-        self.__breakpoints= kwargs.get('breakpoints', [])
+        self.__pc_error = kwargs.get("pc_error", None)
+        self.__breakpoints = kwargs.get("breakpoints", [])
 
-        #TODO remove
-        self.__totalsize = kwargs.get('session_size', None)
+        # TODO remove
+        self.__totalsize = kwargs.get("session_size", None)
 
     @property
     def total_size(self) -> Union[int, None]:
-        #TODO remove
-        print(f'SESSION SIZE {self.__totalsize}')
+        # TODO remove
         return self.__totalsize
 
     @property
     def breakpoints(self) -> List[str]:
-        return [ self.module.addr(bp) for bp in self.__breakpoints]
+        return [self.module.addr(bp) for bp in self.__breakpoints]
 
     @property
     def version(self) -> Union[int, None]:
@@ -44,13 +43,15 @@ class DebugSession(object):
     @version.setter
     def version(self, v: int) -> None:
         if self.__version is not None:
-            raise ValueError('cannot change the version of an already registered session')
+            raise ValueError(
+                "cannot change the version of an already registered session"
+            )
         self.__version = v
 
     @property
     def pc_error(self) -> Union[Expr, None]:
         if isinstance(self.__pc_error, str):
-            m  = self.__module
+            m = self.__module
             i = m.codes.addr(self.__pc_error)
             if i is not None:
                 self.__pc_error = i
@@ -59,7 +60,7 @@ class DebugSession(object):
     @property
     def exception(self) -> Union[str, None]:
         return self.__exception
-    
+
     @exception.setter
     def exception(self, excp_msg: str) -> None:
         self.__exception = excp_msg
@@ -99,7 +100,7 @@ class DebugSession(object):
     @property
     def pc(self) -> Union[Expr, None]:
         if self.__instr is None:
-            m  = self.__module
+            m = self.__module
             i = m.codes.addr(self.__pc)
             if i is None:
                 i = self.__pc
@@ -129,7 +130,7 @@ class DebugSession(object):
     @property
     def valid(self) -> bool:
         if self.__valid is None:
-            #TODO ad try catch
+            # TODO ad try catch
             self.validate()
             self.__valid = True
         return self.__valid
@@ -139,11 +140,11 @@ class DebugSession(object):
             return None
 
         new_state = {
-            'callstack': self.callstack,
-            'stack':self.stack,
-            'memory':self.memory,
-            'table': self.table,
-            'globals': self.globals,
+            "callstack": self.callstack,
+            "stack": self.stack,
+            "memory": self.memory,
+            "table": self.table,
+            "globals": self.globals,
         }
 
         for key in new_state.keys():
@@ -154,73 +155,79 @@ class DebugSession(object):
             else:
                 new_state[key] = upd
 
-        new_state['pc'] = self.pc
-        new_state['module'] = self.module
-        new_state['device'] = self.device
-        new_state['br_table'] = self.br_table
+        new_state["pc"] = self.pc
+        new_state["module"] = self.module
+        new_state["device"] = self.device
+        new_state["br_table"] = self.br_table
+        new_state["breakpoints"] = self.__breakpoints
 
         return DebugSession(**new_state)
 
     def to_json(self) -> dict:
+        d = self.to_dict()
+        d["memory"]["bytes"] = d["memory"]["bytes"].decode("utf-8")
+        return d
+
+    def to_dict(self) -> dict:
         pc = hex(self.pc.addr)
-        stack = self.stack.to_json()['stack']
-        callstack = self.callstack.to_json()['callstack']
+        stack = self.stack.to_json()["stack"]
+        callstack = self.callstack.to_json()["callstack"]
 
         memory = self.memory.to_json()
         tbl = self.table.to_json()
-        _globals = self.globals.to_json()['globals']
+        _globals = self.globals.to_json()["globals"]
         br_table = self.br_table
         _pc_error = self.pc_error
 
         if isinstance(_pc_error, Expr):
-           _pc_error = _pc_error.addr
+            _pc_error = _pc_error.addr
         elif _pc_error is not None and isinstance(_pc_error, str):
             errprint(f"_pc_error is not appropriate type. type is {type(_pc_error)}")
 
         _json = {
-            'pc': pc,
-            'callstack': callstack,
-            'stack': stack,
-            'memory': memory,
-            'table': tbl,
-            'br_table': br_table,
-            'globals': _globals,
-            'breakpoints': self.__breakpoints,
-            'pc_error': _pc_error
+            "pc": pc,
+            "callstack": callstack,
+            "stack": stack,
+            "memory": memory,
+            "table": tbl,
+            "br_table": br_table,
+            "globals": _globals,
+            "breakpoints": self.__breakpoints,
+            "pc_error": _pc_error,
         }
 
         return _json
 
     @staticmethod
     def from_json(_json: dict, module: WAModule, device: Device) -> DebugSession:
-        pc = _json['pc']
-        stack = Stack.from_json_list(_json['stack'])
+        pc = _json["pc"]
+        stack = Stack.from_json_list(_json["stack"])
 
-        callstack = CallStack.from_json(_json['callstack'])
+        callstack = CallStack.from_json(_json["callstack"])
         callstack.stack = stack
         callstack.module = module
 
-        memory = Memory.from_json(_json['memory'])
-        tbl = Table.from_json(_json['table'])
-        _globals = Globals.from_json_list(_json['globals'])
-        br_table = _json['br_table']
+        memory = Memory.from_json(_json["memory"])
+        tbl = Table.from_json(_json["table"])
+        _globals = Globals.from_json_list(_json["globals"])
+        br_table = _json["br_table"]
 
         kwargs = {
-            'module': module,
-            'pc': pc,
-            'callstack': callstack,
-            'stack': stack,
-            'memory': memory,
-            'table': tbl,
-            'br_table': br_table,
-            'globals': _globals,
-            'device': device,
-            'breakpoints': _json['breakpoints'], 
+            "module": module,
+            "pc": pc,
+            "callstack": callstack,
+            "stack": stack,
+            "memory": memory,
+            "table": tbl,
+            "br_table": br_table,
+            "globals": _globals,
+            "device": device,
+            "breakpoints": _json["breakpoints"],
         }
 
-        if _json.get('pc_error', None) is not None:
-            kwargs['pc_error'] = _json['pc_error']
-        if _json.get('session_size', None) is not None:
-            kwargs['session_size'] = _json['session_size']
+        if _json.get("pc_error", None) is not None:
+            kwargs["pc_error"] = _json["pc_error"]
+        if _json.get("session_size", None) is not None:
+            kwargs["session_size"] = _json["session_size"]
 
         return DebugSession(**kwargs)

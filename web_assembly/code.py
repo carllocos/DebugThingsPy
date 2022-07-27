@@ -6,7 +6,8 @@ from utils import dbgprint, errprint
 from web_assembly import SectionDetails, ModuleDetails, DBGInfo
 
 
-#TODO make code more efficient by overwriting magic functions __lt__, __le__, __gt__, __ge__ and __equal__
+# TODO make code more efficient by overwriting magic functions __lt__, __le__, __gt__, __ge__ and __equal__
+
 
 @dataclass
 class Expr:
@@ -30,18 +31,29 @@ class Expr:
         return Expr(self.linenr, self.colstart, self.colend, self.addr, self.exp_type)
 
     def shift(self):
-        e =  Expr(self.linenr, self.colstart, self.colend, self.addr + 1, self.exp_type)
+        e = Expr(self.linenr, self.colstart, self.colend, self.addr + 1, self.exp_type)
         e.code = self.code
         return e
 
+    def to_dict(self) -> dict:
+        d = {"addr": hex(self.addr)}
+        if self.linenr is not None:
+            d["linenr"] = self.linenr
+        # if self.colend is not None:
+        #     d["colend"] = self.linenr
+        # if self.colstart is not None:
+        #     d["colstart"] = self.linenr
+        return d
+
     def __repr__(self) -> str:
-        return f'{str(self)}'
+        return f"{str(self)}"
 
     def __str__(self) -> str:
-        return f'<line {self.linenr} ({hex(self.addr)}): {self.exp_type}>'
-        
+        return f"<line {self.linenr} ({hex(self.addr)}): {self.exp_type}>"
+
+
 class Code:
-    #TODO sort according to linenr, column start
+    # TODO sort according to linenr, column start
     def __init__(self, func_idx: int, body: List[Expr]) -> Code:
         self.__func_idx = func_idx
         self.__body = body
@@ -82,31 +94,31 @@ class Code:
 
     def __fill_ends(self) -> None:
         self.__ends = {}
-        ends = list(filter(lambda e: e.exp_type == 'end', self.expressions))
+        ends = list(filter(lambda e: e.exp_type == "end", self.expressions))
         self.__code_end = ends[-1]
         ends = ends[:-1]
         pos = 0
         if len(ends) > 0:
             ifs = []
             for e in self.expressions:
-                if e.exp_type not in ['if', 'loop', 'block', 'else']:
+                if e.exp_type not in ["if", "loop", "block", "else"]:
                     continue
-                if e.exp_type == 'else':
-                    self.__ends[e.addr] =  self.__ends[ifs[-1].addr]
+                if e.exp_type == "else":
+                    self.__ends[e.addr] = self.__ends[ifs[-1].addr]
                     ifs = ifs[:-1]
                     if pos >= len(ends) and len(ifs) == 0:
                         break
                     continue
 
-                if e.exp_type == 'if':
+                if e.exp_type == "if":
                     ifs.append(e)
 
                 self.__ends[e.addr] = ends[pos]
-                pos+=1
+                pos += 1
                 if pos >= len(ends) and len(ifs) == 0:
                     break
 
-    def end_expr(self, exp: Expr ) -> Union[None, Expr]:
+    def end_expr(self, exp: Expr) -> Union[None, Expr]:
         if self.__ends is None:
             self.__fill_ends()
         return self.__ends.get(exp.addr, None)
@@ -117,7 +129,8 @@ class Code:
         elif isinstance(key, str):
             return self.addr(key)
         else:
-            raise ValueError(f'incorrect key expecting an int')
+            raise ValueError(f"incorrect key expecting an int")
+
 
 class Codes:
     def __init__(self, codes: List[Code]):
@@ -126,13 +139,13 @@ class Codes:
     @property
     def codes(self) -> List[Code]:
         return self.__codes
-    
+
     def __getitem__(self, key: Any) -> Union[Code, None]:
         if isinstance(key, str):
             key = int(key, 16)
         if isinstance(key, int):
             return next((c for c in self.codes if c.func_idx == key), None)
-        raise ValueError('incorrect key expecting an int')
+        raise ValueError("incorrect key expecting an int")
 
     def addr(self, addr):
         i = None
@@ -150,13 +163,22 @@ class Codes:
                 for e in _exps:
                     exps.append(e)
         return exps
-    
+
     @staticmethod
     def from_dbg(dbg_info: DBGInfo):
-        mod : ModuleDetails = dbg_info[1]
-        codes = mod['codes']
+        mod: ModuleDetails = dbg_info[1]
+        codes = mod["codes"]
         codes_lst = []
         for func_idx, intrs in codes.items():
-            exps = [ Expr(e.get('line', None), e.get('col_start', None), e.get('col_end', None), e['addr'], e['type'])  for  e in intrs]
-            codes_lst.append(Code(func_idx,exps))
+            exps = [
+                Expr(
+                    e.get("line", None),
+                    e.get("col_start", None),
+                    e.get("col_end", None),
+                    e["addr"],
+                    e["type"],
+                )
+                for e in intrs
+            ]
+            codes_lst.append(Code(func_idx, exps))
         return Codes(codes_lst)

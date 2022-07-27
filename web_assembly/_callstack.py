@@ -11,17 +11,17 @@ from web_assembly import WAModule, Stack, StackValue
 class Frame:
     idx: int
     block_type: str
-    __fp: int = field(repr=False) #fp of previous frame
-    sp: int = field(repr=False) #sp of preivous frame
+    __fp: int = field(repr=False)  # fp of previous frame
+    sp: int = field(repr=False)  # sp of preivous frame
     ret_addr: str
     fun_idx: Union[int, None] = None
     __block_key: Union[None, str] = field(init=False, repr=False, default=None)
-    module: Union[WAModule, None] = field(init = False, repr=False, default=None)
-    stack: Union[Stack, None] = field(repr=False, default = None)
+    module: Union[WAModule, None] = field(init=False, repr=False, default=None)
+    stack: Union[Stack, None] = field(repr=False, default=None)
 
     @property
     def fp(self) -> Union[int, None]:
-        if self.block_type != 'fun':
+        if self.block_type != "fun":
             return None
         return self.sp + 1
 
@@ -36,33 +36,33 @@ class Frame:
     @block_key.setter
     def block_key(self, key: str) -> None:
         self.__block_key = key
-    
+
     @property
     def locals(self) -> List[StackValue]:
-        if self.block_type != 'fun':
+        if self.block_type != "fun":
             return []
         elif self.stack is None or self.module is None:
-            raise ValueError('Module required to generate args')
+            raise ValueError("Module required to generate args")
 
         fun = self.module.functions[self.fun_idx]
         args_amount = len(fun.signature.parameters)
         locals_amount = len(fun.locals)
-        keys = map(lambda loc: loc.idx , fun.locals )
+        keys = map(lambda loc: loc.idx, fun.locals)
         locals_dict = dict(zip(keys, fun.locals))
         fp = self.fp
         sp = fp + args_amount
         values = self.stack[sp : sp + locals_amount]
         for v in values:
-           _loc = locals_dict[v.idx]
-           v.name = _loc.name
+            _loc = locals_dict[v.idx]
+            v.name = _loc.name
         return values
 
     @property
     def args(self) -> List[StackValue]:
-        if self.block_type != 'fun':
+        if self.block_type != "fun":
             return []
         elif self.stack is None or self.module is None:
-            raise ValueError('Module required to generate args')
+            raise ValueError("Module required to generate args")
 
         fp = self.fp
         fun = self.module.functions[self.fun_idx]
@@ -70,40 +70,51 @@ class Frame:
         return self.stack[fp : fp + args_amount]
 
     def copy(self):
-        #TODO replace with propery copyj
+        # TODO replace with propery copyj
         return StackValue.from_json(self.to_json())
 
     def to_json(self) -> dict:
-        _json =  {
-            'idx': self.idx,
-            'block_type': self.block_type,
-            'sp': self.sp,
-            'fp': self.prev_fp,
-            'ret_addr': self.ret_addr,
-            'fidx': 0 if self.fun_idx is None else self.fun_idx
+        _json = {
+            "idx": self.idx,
+            "block_type": self.block_type,
+            "sp": self.sp,
+            "fp": self.prev_fp,
+            "ret_addr": self.ret_addr,
+            "fidx": 0 if self.fun_idx is None else self.fun_idx,
         }
-        if self.block_type != 'fun':
-            _json['block_key'] = self.block_key
+        if self.block_type != "fun":
+            _json["block_key"] = self.block_key
+        else:
+            _json["locals"] = [l.to_json() for l in self.locals]
+            _json["args"] = [a.to_json() for a in self.args]
         return _json
 
     @staticmethod
     def from_json(_json: dict) -> Frame:
-        f = Frame(_json['idx'], _json['block_type'], _json['fp'], _json['sp'], _json['ret_addr'], _json.get('fidx', None))
-        if f.block_type != 'fun':
-            f.block_key = _json['block_key']
+        f = Frame(
+            _json["idx"],
+            _json["block_type"],
+            _json["fp"],
+            _json["sp"],
+            _json["ret_addr"],
+            _json.get("fidx", None),
+        )
+        if f.block_type != "fun":
+            f.block_key = _json["block_key"]
         return f
+
 
 @dataclass
 class CallStack:
     __frames: List[Frame]
-    __idx: int = field(repr=False, init=False, default = int(0))
-    __len: int = field(repr=False, init=False, default = int(0))
+    __idx: int = field(repr=False, init=False, default=int(0))
+    __len: int = field(repr=False, init=False, default=int(0))
     __stack: Union[Stack, None] = field(repr=False, init=False, default=None)
     __module: Union[WAModule, None] = field(repr=False, init=False, default=None)
 
     def __post_init__(self):
         self.__idx = 0
-        self.__frames.sort(key = lambda f: f.idx, reverse= True)
+        self.__frames.sort(key=lambda f: f.idx, reverse=True)
         self.__len = len(self.frames)
 
     @property
@@ -128,7 +139,7 @@ class CallStack:
 
     @property
     def frames(self) -> List[Frame]:
-        return list(filter(lambda f: f.block_type == 'fun', self.__frames))
+        return list(filter(lambda f: f.block_type == "fun", self.__frames))
 
     @property
     def all_frames(self) -> List[Frame]:
@@ -162,12 +173,12 @@ class CallStack:
         return False
 
     def print(self):
-        s = ''
+        s = ""
         i = len(self.frames)
         for f in self.frames:
-            i-=1
+            i -= 1
             fun = self.module.functions[f.fun_idx]
-            s = s + f'Frame(idx={i},name={fun.name},fun_id={fun.idx})' + '\n'
+            s = s + f"Frame(idx={i},name={fun.name},fun_id={fun.idx})" + "\n"
         print(s)
 
     def copy(self) -> CallStack:
@@ -179,12 +190,12 @@ class CallStack:
         return cs
 
     def to_json(self) -> List[dict]:
-        return {'callstack': [f.to_json() for f in self.__frames] }
+        return {"callstack": [f.to_json() for f in self.__frames]}
 
     @staticmethod
     def from_json(_json: dict) -> CallStack:
         frames = []
         for idx, frame_obj in enumerate(_json):
-            frame_obj['idx'] = idx
+            frame_obj["idx"] = idx
             frames.append(Frame.from_json(frame_obj))
         return CallStack(frames)

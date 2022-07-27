@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Union, List, Any
 
+
 class Memory:
     def __init__(self, _min: int, _max: Union[int, None], pages: int, byts: bytes):
         self.__min = _min
@@ -9,7 +10,7 @@ class Memory:
         self.__bytes = byts
 
     @property
-    def bytes(self)-> bytes:
+    def bytes(self) -> bytes:
         return self.__bytes
 
     @property
@@ -25,23 +26,19 @@ class Memory:
         return self.__pages
 
     @property
-    def modified(self)-> bool:
+    def modified(self) -> bool:
         return False
 
     def get_update(self, module: Any) -> Union[None, Memory]:
         return None
 
     def __repr__(self):
-        return f'Memory(min={self.min}, max={self.max}, pages={self.pages},bytes={self.bytes})'
+        return f"Memory(min={self.min}, max={self.max}, pages={self.pages},bytes={self.bytes})"
 
     def to_json(self) -> dict:
-        _json = {
-            'min': self.min,
-            'bytes': self.bytes,
-            'pages': self.pages
-        }
+        _json = {"min": self.min, "bytes": self.bytes, "pages": self.pages}
         if self.max is not None:
-            _json['max'] = self.max
+            _json["max"] = self.max
         return _json
 
     def copy(self) -> Memory:
@@ -50,11 +47,13 @@ class Memory:
 
     @staticmethod
     def from_json(_json: dict) -> Memory:
-        return Memory(_json['min'], _json.get('max', None), _json['pages'], _json['bytes'])
+        return Memory(
+            _json["min"], _json.get("max", None), _json["pages"], _json["bytes"]
+        )
+
 
 class Memories:
-
-    def __init__(self, memories: List[Memory])  -> Memories:
+    def __init__(self, memories: List[Memory]):
         self.__mems = memories
 
     @property
@@ -63,5 +62,5 @@ class Memories:
 
     def __getitem__(self, key: Any) -> Memory:
         if not isinstance(key, int):
-            raise ValueError(f'key error')
+            raise ValueError(f"key error")
         return self.__mems[key]

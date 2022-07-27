@@ -12,11 +12,11 @@ import time
 from utils import dbgprint, errprint
 from interfaces import AMedium, AMessage
 
-class SocketWrapper:
 
+class SocketWrapper:
     def __init__(self, sock):
         self.__sock = sock
-        self.__recvbuff = b''
+        self.__recvbuff = b""
         self.__connected = True
 
     @property
@@ -34,16 +34,15 @@ class SocketWrapper:
     @property
     def connected(self) -> bool:
         return self.__connected
-    
+
     def close(self) -> None:
-        print("closing socket")
         self.__sock.close()
         self.__connected = False
 
     def send(self, d):
         return self.socket.send(d)
 
-    def recv(self, d, timeout = False):
+    def recv(self, d, timeout=False):
         if timeout:
             deadline = time.time() + 3
             self.socket.settimeout(deadline)
@@ -64,8 +63,9 @@ class SocketWrapper:
         self.recvbuff = remain
         return buff
 
+
 class Sockets(AMedium):
-    def __init__(self, port, host, _maxsend= 1024):
+    def __init__(self, port, host, _maxsend=1024):
         self.__port = port
         self.__host = clean_host(host)
         self.__serializer = None
@@ -73,14 +73,13 @@ class Sockets(AMedium):
         self.__evsocket = None
         self.__fp = None
 
-        assert _maxsend > 0, f'{_maxsend} > {0}'
+        assert _maxsend > 0, f"{_maxsend} > {0}"
         self.__maxsendbytes = _maxsend
-        self.__recvbuff_size = _maxsend     #TODO change
+        self.__recvbuff_size = _maxsend  # TODO change
 
-
-    #TODO remove
+    # TODO remove
     @property
-    def is_socket(self)-> bool:
+    def is_socket(self) -> bool:
         return True
 
     @property
@@ -127,11 +126,9 @@ class Sockets(AMedium):
     def recvbuff_size(self) -> int:
         return self.__recvbuff_size
 
-    #API
+    # API
     def start_connection(self, dev) -> bool:
-        #FIXME add try catch
-        # dbgprint(f'connecting at {self.host} port {self.port}')
-
+        # FIXME add try catch
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         evsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((self.host, self.port))
@@ -139,20 +136,21 @@ class Sockets(AMedium):
 
         self.__socket = SocketWrapper(sock)
         self.__evsocket = SocketWrapper(evsock)
-
         return True
 
     def close_connection(self, dev):
-        raise NotImplementedError
+        if self.__socket is not None:
+            self.__socket.close()
+        if self.__evsocket is not None:
+            self.__evsocket.close()
 
     def discover_devices(self):
         raise NotImplementedError
 
-
     def send(self, msgs: Union[AMessage, List[AMessage]]) -> List[Any]:
         messages = msgs
         if not isinstance(msgs, list):
-            messages= [msgs]
+            messages = [msgs]
 
         replies = []
         for m in messages:
@@ -174,7 +172,7 @@ class Sockets(AMedium):
 
         evsock = self.event_socket.socket
         io_sock = self.socket.socket
-        ready, _, err = select.select([evsock], [],[evsock, io_sock], timeout)
+        ready, _, err = select.select([evsock], [], [evsock, io_sock], timeout)
 
         for e in err:
             if e == io_sock:
@@ -183,8 +181,14 @@ class Sockets(AMedium):
                 self.event_socket.close()
         return len(ready) > 0
 
-    def recv_until(self, until: Union[List[bytes], bytes], event:bool = False, wait: bool = True, timeout: bool = False) -> bytes:
-        aSocket =  self.event_socket if event else self.socket
+    def recv_until(
+        self,
+        until: Union[List[bytes], bytes],
+        event: bool = False,
+        wait: bool = True,
+        timeout: bool = False,
+    ) -> bytes:
+        aSocket = self.event_socket if event else self.socket
         _untils = until
         if isinstance(until, bytes):
             _untils = [until]
@@ -197,14 +201,12 @@ class Sockets(AMedium):
 
         while wait:
             if not aSocket.connected:
-                return b''
+                return b""
 
-            _bytes = aSocket.recv(self.recvbuff_size, timeout= timeout)
+            _bytes = aSocket.recv(self.recvbuff_size, timeout=timeout)
             if len(_bytes) == 0:
-                print("closing connection")
-                dbgprint("connection closed")
                 aSocket.close()
-                return b''
+                return b""
 
             aSocket.add_bytes(_bytes)
             for u in _untils:
@@ -212,9 +214,10 @@ class Sockets(AMedium):
                 if _bytes is not None:
                     return _bytes
 
+
 def clean_host(h: str) -> str:
     cleaned = h.lower().strip()
-    if cleaned == 'localhost' or cleaned == '127.0.0.1':
-        return 'localhost'
+    if cleaned == "localhost" or cleaned == "127.0.0.1":
+        return "localhost"
     else:
         return cleaned

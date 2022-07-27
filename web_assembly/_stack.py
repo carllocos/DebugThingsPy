@@ -5,8 +5,9 @@ from dataclasses import dataclass, field
 from utils import dbgprint, errprint
 from web_assembly import ConstValue
 
+
 class StackValue(ConstValue):
-    def __init__(self, _type: str, val: Any, idx: int, name: Union[str, None] = None) -> StackValue:
+    def __init__(self, _type: str, val: Any, idx: int, name: Union[str, None] = None):
         super().__init__(_type, val)
         self.__idx = idx
         self.__stack = None
@@ -42,7 +43,7 @@ class StackValue(ConstValue):
         self.__stack = s
 
     def _set_value(self, v) -> None:
-        if self.type in ['f32', 'f64']:
+        if self.type in ["f32", "f64"]:
             if not isinstance(v, float):
                 raise ValueError(f"exptected a value of type '{self.type}'")
         else:
@@ -55,13 +56,13 @@ class StackValue(ConstValue):
         return v
 
     def __str__(self) -> str:
-        return f'{self.idx}: {self.type}.const  {self.value}'
+        return f"{self.idx}: {self.type}.const  {self.value}"
 
     def __repr__(self) -> str:
-        end = ')'
+        end = ")"
         if self.name is not None:
-            end = f', name={self.name})'
-        return f'StackValue(idx={self.idx}, value={self.value}, type={self.type}{end}'
+            end = f", name={self.name})"
+        return f"StackValue(idx={self.idx}, value={self.value}, type={self.type}{end}"
 
     @property
     def modified(self) -> bool:
@@ -80,26 +81,25 @@ class StackValue(ConstValue):
         return StackValue(self.type, self.value, self.idx, self.name)
 
     def to_json(self) -> dict:
-        return {
-            'type': self.type,
-            'value': self.value,
-            'idx' : self.idx
-        }
+        v = {"type": self.type, "value": self.value, "idx": self.idx}
+        if self.name is not None:
+            v["name"] = self.name
+        return v
 
     @staticmethod
     def from_const(const: ConstValue, idx: int) -> StackValue:
-        return StackValue(const.type, const.val, idx )
+        return StackValue(const.type, const.val, idx)
 
     @staticmethod
-    def from_json(_json : dict) -> StackValue:
-        return StackValue(_json['type'], _json['value'], _json['idx'])
+    def from_json(_json: dict) -> StackValue:
+        return StackValue(_json["type"], _json["value"], _json["idx"])
+
 
 class Stack:
-
     def __init__(self):
         self.__values = []
         self.__idx = None
-        self.__values.sort(key = lambda sv: sv.idx, reverse= True)
+        self.__values.sort(key=lambda sv: sv.idx, reverse=True)
 
     @property
     def values(self) -> List[StackValue]:
@@ -115,7 +115,7 @@ class Stack:
 
     def __add__(self, e: Any) -> Stack:
         if not isinstance(e, StackValue):
-            raise ValueError('stackValue expected')
+            raise ValueError("stackValue expected")
         self.__values.append(e)
         return self
 
@@ -132,21 +132,20 @@ class Stack:
 
         s = Stack()
         for v in self.__values:
-           s += v.get_latest()
+            s += v.get_latest()
 
         return s
-    
+
     def __len__(self) -> int:
         return len(self.values)
-   
+
     def reset_iterator(self):
         self.__idx = 0
 
-
     def print(self):
-        s = ''
+        s = ""
         for v in self.__values:
-            s = f'StackValue(idx={v.idx},type={v.type},val={v.value})' + '\n' + s
+            s = f"StackValue(idx={v.idx},type={v.type},val={v.value})" + "\n" + s
         print(s)
 
     def copy(self) -> Stack:
@@ -156,12 +155,12 @@ class Stack:
         return s
 
     def to_json(self) -> dict:
-        return { 'stack': [sv.to_json() for sv in self.values]}
+        return {"stack": [sv.to_json() for sv in self.values]}
 
     @staticmethod
     def from_json_list(_json: List[dict]) -> Stack:
         stack = Stack()
-        for idx, val_obj in  enumerate(_json):
-            val_obj['idx'] = idx
+        for idx, val_obj in enumerate(_json):
+            val_obj["idx"] = idx
             stack += StackValue.from_json(val_obj)
         return stack

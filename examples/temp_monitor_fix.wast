@@ -16,6 +16,7 @@
  (global $sensorA i32 (i32.const 3030))
  (global $sensorB i32 (i32.const 3031))
  (global $connected (mut f32) (f32.const 0))
+ (global $cachedAvg (mut f32) (f32.const 0))
 
 (func $inc_connected (type $voidtovoid)
     (f32.add
@@ -34,7 +35,7 @@
         (else
           (f32.const 0.0))))
 
-(func $avgTemp (type $voidtof32)
+  (func $avgTemp (type $voidtof32)
     (local $sum f32)
     (global.get $sensorA)
     (call $getTemp)
@@ -42,17 +43,18 @@
     (call $getTemp)
     f32.add
     (local.set $sum)
-
-    (f32.eq 
+    (f32.eq
         (global.get $connected)
         (f32.const 0))
     (if (result f32)
         (then
-            (f32.const 0.0))
+            (global.get $cachedAvg))
         (else 
             (local.get $sum)
-            (global.get $connected)
-            f32.div)))
+            (global.get $connected) 
+            f32.div
+            (global.set $cachedAvg)
+          (global.get $cachedAvg))))
 
 
  (func $main (type $voidtovoid)

@@ -1,16 +1,18 @@
 from .util import hex2Int, sum_hexs, substract_hexs
 from ._tools import wat2wasm, wasm_sourcemaps
 from ._network import valid_addr
-from ._logger import dbgprint, errprint, infoprint
+from ._logger import dbgprint, errprint, infoprint, get_logger
 
 __all__ = [
-    'hex2Int',
-    'sum_hexs',
-    'substract_hexs',
-    'wat2wasm',
-    'wasm_sourcemaps',
-    'valid_addr',
-    'dbgprint',
-    'errprint',
-    'infoprint'
+    "hex2Int",
+    "sum_hexs",
+    "substract_hexs",
+    "wat2wasm",
+    "wasm_sourcemaps",
+    "valid_addr",
+    "dbgprint",
+    "errprint",
+    "infoprint",
+    "get_logger",
 ]
+
