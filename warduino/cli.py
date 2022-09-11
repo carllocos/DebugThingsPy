@@ -41,10 +41,12 @@ def json2binary_and_b64(stateOrFile: str, offset_emulator: str):
         state = json.load(open(stateOrFile))
     else:
         state = json.loads(state)
+    logger.info(f"parsed state and rebase to offset {offset_emulator}")
+    logger.debug(f"parsed state and new offset {offset_emulator} {state}")
     wood_state = rebase_state(state, offset_emulator)
     logger.debug(f"State to send {wood_state}")
     payloads = bin_prot.encode_state(wood_state)
-    logger.info(f"Created #{len(payloads)} State Messages")
+    logger.info(f"State Messages #{len(payloads)}")
     concat_payload = functools.reduce(operator.add, payloads)
     logger.info(f"Encoding State Messages as single Base64 String")
     b64_bytes = base64.b64encode(concat_payload.encode("ascii"))
